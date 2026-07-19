@@ -215,46 +215,46 @@
                 </form>
             </div>
 
-            <!-- Script JavaScript Corrigido para Atualização de Tela Sem Refresh -->
-            {% if checkout_pix %}
-            <script>
-                const emailSolicitado = "{{ email_solicitado }}";
-                
-                // Executa a checagem a cada 4 segundos
-                const intervaloChecagem = setInterval(async () => {
-                    try {
-                        // Busca o saldo atualizado na rota do servidor
-                        const resposta = await fetch(`/checar-creditos?email=${encodeURIComponent(emailSolicitado)}`);
-                        const dados = await resposta.json(); // <-- CORRIGIDO: de reply para resposta
-                        
-                        // Se o saldo for maior que zero, significa que o Webhook já aprovou o pagamento
-                        if (dados.creditos > 0) {
-                            clearInterval(intervaloChecagem); // Para o cronômetro
+                <!-- Script JavaScript Corrigido para Atualização de Tela Sem Refresh -->
+                {% if checkout_pix %}
+                <script>
+                    const emailSolicitado = "{{ email_solicitado }}";
+                    
+                    // Executa a checagem a cada 4 segundos
+                    const intervaloChecagem = setInterval(async () => {
+                        try {
+                            // Busca o saldo atualizado na rota do servidor
+                            const resposta = await fetch(`/checar-creditos?email=${encodeURIComponent(emailSolicitado)}`);
+                            const dados = await resposta.json(); // <-- CORRIGIDO: de reply para resposta
                             
-                            // --- ATUALIZAÇÃO VISUAL EM TEMPO REAL ---
-                            // Seleciona o card do Mercado Pago na tela e substitui pelo aviso de sucesso
-                            const painelLateral = document.querySelector('.bg-gradient-to-br');
-                            if (painelLateral) {
-                                painelLateral.innerHTML = `
-                                    <div class="p-2 text-center">
-                                        <div class="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md" style="font-size: 1.5rem; font-weight: bold;">
-                                            ✓
+                            // Se o saldo for maior que zero, significa que o Webhook já aprovou o pagamento
+                            if (dados.creditos > 0) {
+                                clearInterval(intervaloChecagem); // Para o cronômetro
+                                
+                                // --- ATUALIZAÇÃO VISUAL EM TEMPO REAL ---
+                                // Seleciona o card do Mercado Pago na tela e substitui pelo aviso de sucesso
+                                const painelLateral = document.querySelector('.bg-gradient-to-br');
+                                if (painelLateral) {
+                                    painelLateral.innerHTML = `
+                                        <div class="p-2 text-center">
+                                            <div class="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md" style="font-size: 1.5rem; font-weight: bold;">
+                                                ✓
+                                            </div>
+                                            <h3 class="font-black text-xl text-green-400 mb-1">Crédito Liberado!</h3>
+                                            <p class="text-indigo-200 text-xs mb-6">Seus 50 créditos foram adicionados ao e-mail <strong>${emailSolicitado}</strong> com sucesso.</p>
+                                            <button onclick="window.location.href='/'" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
+                                                Começar a Usar
+                                            </button>
                                         </div>
-                                        <h3 class="font-black text-xl text-green-400 mb-1">Crédito Liberado!</h3>
-                                        <p class="text-indigo-200 text-xs mb-6">Seus 50 créditos foram adicionados ao e-mail <strong>${emailSolicitado}</strong> com sucesso.</p>
-                                        <button onclick="window.location.href='/'" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
-                                            Começar a Usar
-                                        </button>
-                                    </div>
-                                `;
+                                    `;
+                                }
                             }
+                        } catch (erro) {
+                            console.error("Aguardando confirmação do pagamento no Mercado Pago...", erro);
                         }
-                    } catch (erro) {
-                        console.error("Aguardando confirmação do pagamento no Mercado Pago...", erro);
-                    }
-                }, 4000);
-            </script>
-            {% endif %}
+                    }, 4000);
+                </script>
+                {% endif %}
 
                 {% elif qrcode_gerado %}
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
