@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de QR Code Pix</title>
+    <script src="https://jsdelivr.net"></script>
+</head>
+<body class="container" style="padding-top: 2rem; max-width: 800px;">
+    <main>
+        <h1 style="text-align: center;">Gerador de Pix Copia e Cola & QR Code</h1>
+        
+        <form method="post" style="margin-top: 2rem;">
+            <div class="grid">
+                <div>
+                    <label for="chave">Chave Pix:</label>
+                    <input type="text" id="chave" name="chave" placeholder="CPF, Celular, E-mail ou EVP" required>
+                </div>
+                <div>
+                    <label for="nome">Nome do Beneficiário:</label>
+                    <input type="text" id="nome" name="nome" placeholder="Ex: Cleverson K Nakazawa" maxlength="25" required>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div>
+                    <label for="cidade">Cidade:</label>
+                    <input type="text" id="cidade" name="cidade" placeholder="Ex: CURITIBA" maxlength="15" required>
+                </div>
+                <div>
+                    <label for="valor">Valor (R$):</label>
+                    <input type="number" id="valor" name="valor" step="0.01" min="0.00" value="0.00" placeholder="0.00 (Deixe 0 para valor aberto)" required>
+                </div>
+            </div>
+
+            <button type="submit" style="margin-top: 1rem;">Gerar QR Code Pix</button>
+        </form>
+
+        {% if qrcode_gerado %}
+        <article style="text-align: center; margin-top: 2rem;">
+            <h3>QR Code Gerado com Sucesso!</h3>
+            <img src="{{ qrcode_gerado }}" alt="QR Code Pix" style="max-width: 250px; border: 1px solid #ccc; padding: 10px; background: white;"><br><br>
+            
+            <label for="copia_cola">Código Copia e Cola:</label>
+            <textarea id="copia_cola" readonly style="font-family: monospace; font-size: 0.9rem;">{{ url_original }}</textarea>
+            
+            <a href="{{ qrcode_gerado }}" download="pix_qrcode.png" role="button" class="secondary">Baixar Imagem</a>
+        </article>
+        {% endif %}
+
+        <hr style="margin: 3rem 0;">
+
+        <h2>Histórico de Cobranças (Últimas 10)</h2>
+        <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código Copia e Cola (Payload)</th>
+                        <th>Data de Criação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in historico %}
+                    <tr>
+                        <td><code style="word-break: break-all; font-size: 0.8rem;">{{ item.url }}</code></td>
+                        <td><small>{{ item.created_at }}</small></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="2">Nenhum QR Code gerado ainda.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </figure>
+    </main>
+</body>
+</html>
