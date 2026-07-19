@@ -26,51 +26,54 @@ def limpar_texto(texto):
     ).upper().replace('$', '').replace('@', '@')
 
 def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
-    # Limpa os campos conforme sua regra original
-    nome = limpar_texto(nome)[:25]
+    nome = limpar_texto(nome)[:25] # Limite de caracteres padrão EMV
     cidade = limpar_texto(cidade)[:15]
     txid = limpar_texto(txid)[:25]
     
-    # 00: Indicador do formato (Fixo)
-    payload = "000201"
+    payload_format_indicator = "000201"
     
-    # 26: Dados da Conta do Recebedor (Chave Pix)
-    # Aqui o tamanho do sub-bloco da chave (01) deve ser calculado dinamicamente
+    # --- AJUSTE CRÍTICO: Cálculo dinâmico do Merchant Account para o BB ---
     gui = "0014BR.GOV.BCB.PIX"
     sub_bloco_chave = f"01{len(chave):02d}{chave}"
     merchant_account = gui + sub_bloco_chave
+    merchant_account_len = f"26{len(merchant_account):02d}{merchant_account}"
+    # ----------------------------------------------------------------------
     
-    # Monta o ID 26 com o tamanho correto de toda a string de conta
-    payload += f"26{len(merchant_account):02d}{merchant_account}"
+    merchant_category_code = "52040000"
+    transaction_currency = "5303986"
     
-    # 52: Merchant Category Code (Código de Categoria - Fixo)
-    payload += "52040000"
-    
-    # 53: Transaction Currency (Moeda: 986 para Real - Fixo)
-    payload += "5303986"
-    
-    # 54: Transaction Amount (Valor - Opcional se for zero)
+    # Formata valor com duas casas decimais e mede o tamanho dinamicamente
+    #valor_str = f"{valor:.2f}"
+    #transaction_amount = f"54{len(valor_str):02d}{valor_str}"
+
+    # Procure a parte que adiciona o valor (ID 54) e altere para:
     if valor > 0:
         valor_str = f"{valor:.2f}"
-        payload += f"54{len(valor_str):02d}{valor_str}"
+        payload += f"54{len(valor_str):02}{valor_str}"
     
-    # 58: Country Code (Código do País: BR - Fixo)
-    payload += "5802BR"
+    country_code = "5802BR"
     
-    # 59: Merchant Name (Nome do Beneficiário)
-    payload += f"59{len(nome):02d}{nome}"
+    merchant_name = f"59{len(nome):02d}{nome}"
+    merchant_city = f"60{len(cidade):02d}{cidade}"
     
-    # 60: Merchant City (Cidade do Beneficiário)
-    payload += f"60{len(cidade):02d}{cidade}"
-    
-    # 62: Additional Data Field Template (Contém o TXID)
+    # Bloco do TXID formatado rigidamente
     additional_data = f"05{len(txid):02d}{txid}"
-    payload += f"62{len(additional_data):02d}{additional_data}"
+    additional_data_template = f"62{len(additional_data):02d}{additional_data}"
     
-    # 63: Indicador de início do cálculo de CRC (Fixo)
-    payload += "6304"
+    # Concatenação da payload base
+    payload = (
+        payload_format_indicator +
+        merchant_account_len +
+        merchant_category_code +
+        transaction_currency +
+        country_code +
+        merchant_name +
+        merchant_city +
+        additional_data_template +
+        "6304"
+    )
     
-    # Cálculo do CRC16 CCITT exato sobre a string montada
+    # Cálculo do CRC16 CCITT
     crc16 = crcmod.mkCrcFun(poly=0x11021, initCrc=0xFFFF, rev=False, xorOut=0x0000)
     crc_code = hex(crc16(payload.encode('utf-8')))[2:].upper().zfill(4)
     
