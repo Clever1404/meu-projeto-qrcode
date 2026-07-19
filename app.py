@@ -4,8 +4,9 @@ import base64
 import qrcode
 import crcmod
 import unicodedata
+import mercadopago
 from typing import Annotated
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, status, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from supabase import create_client, Client
@@ -13,11 +14,15 @@ from supabase import create_client, Client
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# Configuração do Supabase via Variáveis de Ambiente
+# Configurações do Mercado Pago e Supabase via Variáveis de Ambiente
+MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN")
+sdk = mercadopago.SDK(MP_ACCESS_TOKEN)
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# --- SUA FUNÇÃO DE LIMPEZA IDENTICA ---
 def limpar_texto(texto):
     # Remove acentos, caracteres especiais e força letras maiúsculas
     return "".join(
@@ -25,6 +30,7 @@ def limpar_texto(texto):
         if unicodedata.category(c) != 'Mn'
     ).upper().replace('$', '').replace('@', '@') # mantém o @ se for e-mail
 
+# --- SUA FUNÇÃO DO PIX QUE DEU CERTO (Ajustada apenas para não quebrar a variável) ---
 def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     nome = limpar_texto(nome)[:25] # Limite de caracteres padrão EMV
     cidade = limpar_texto(cidade)[:15]
@@ -42,14 +48,11 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     merchant_category_code = "52040000"
     transaction_currency = "5303986"
     
-    # Formata valor com duas casas decimais e mede o tamanho dinamicamente
-    #valor_str = f"{valor:.2f}"
-    #transaction_amount = f"54{len(valor_str):02d}{valor_str}"
-
     # Procure a parte que adiciona o valor (ID 54) e altere para:
+    transaction_amount = ""
     if valor > 0:
         valor_str = f"{valor:.2f}"
-        payload += f"54{len(valor_str):02}{valor_str}"
+        transaction_amount = f"54{len(valor_str):02d}{valor_str}"
     
     country_code = "5802BR"
     
@@ -60,12 +63,13 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     additional_data = f"05{len(txid):02d}{txid}"
     additional_data_template = f"62{len(additional_data):02d}{additional_data}"
     
-    # Concatenação da payload base
+    # Concatenação da payload base exatamente como o seu código estruturou
     payload = (
         payload_format_indicator +
         merchant_account_len +
         merchant_category_code +
         transaction_currency +
+        transaction_amount +  # Adicionado de forma segura
         country_code +
         merchant_name +
         merchant_city +
@@ -80,27 +84,26 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     return payload + crc_code
 
 def gerar_base64_qrcode(payload_pix: str) -> str:
-    """Gera o QR Code com o nível de erro padrão, permitindo leitura em qualquer tamanho"""
     qr = qrcode.QRCode(
-        version=None,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M, # Nível médio evita erros de leitura
         box_size=10,
         border=4,
     )
-    qr.add_data(payload_pix)  # Removemos o modo restrito alfanumérico para evitar o ValueError
+    qr.add_data(payload_pix)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
-    img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{img_str}"
+    return f"data:image/png;base64,{base64.b64encode(buffer.getvalue()).decode('utf-8')}"
+
+# --- ROTAS DO SISTEMA FREEMIUM ---
 
 @app.get("/", response_class=HTMLResponse)
 async def pagina_inicial(request: Request):
-    resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(10).execute()
-    historico = resposta.data
-    return templates.TemplateResponse("index.html", {"request": request, "historico": historico})
+    resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
+    return templates.TemplateResponse("index.html", {"request": request, "historico": resposta.data})
 
 @app.post("/", response_class=HTMLResponse)
 async def criar_qrcode(
@@ -108,30 +111,88 @@ async def criar_qrcode(
     chave: Annotated[str, Form()],
     nome: Annotated[str, Form()],
     cidade: Annotated[str, Form()],
-    valor: Annotated[float, Form()]
+    valor: Annotated[float, Form()],
+    email_cliente: Annotated[str, Form()]
 ):
+    email_verificar = email_cliente.strip().lower()
+    
+    # 1. Gerenciamento automático de créditos no Supabase
+    user_query = supabase.table("usuarios_pagos").select("*").eq("email", email_verificar).execute()
+    
+    if not user_query.data:
+        # Primeiro acesso: cria o usuário e dá 3 créditos grátis
+        user_insert = supabase.table("usuarios_pagos").insert({"email": email_verificar, "creditos": 3}).execute()
+        user_data = user_insert.data[0]
+    else:
+        user_data = user_query.data[0]
+
+    # 2. Se não tiver créditos, barra e exibe o gatilho de pagamento
+    if user_data["creditos"] <= 0:
+        resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
+        return templates.TemplateResponse("index.html", {
+            "request": request, "historico": resposta.data,
+            "erro_pagamento": "Seus 3 créditos gratuitos acabaram. Realize uma recarga abaixo para continuar.",
+            "email_bloqueado": email_verificar
+        })
+
+    # 3. Deduz 1 crédito se houver saldo
+    novos_creditos = user_data["creditos"] - 1
+    supabase.table("usuarios_pagos").update({"creditos": novos_creditos}).eq("email", email_verificar).execute()
+
+    # 4. Executa o seu código Pix homologado
     payload_pix = gerar_payload_pix_estrito(chave, nome, cidade, valor)
     qrcode_base64 = gerar_base64_qrcode(payload_pix)
     
-    dados_banco = {
-        "chave": chave,
-        "nome": nome,
-        "cidade": cidade,
-        "valor": valor,
-        "payload_pix": payload_pix,
-        "image_url": qrcode_base64
+    # Salva histórico geral
+    supabase.table("qrcodes").insert({"url": payload_pix, "image_url": qrcode_base64}).execute()
+    resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
+    
+    return templates.TemplateResponse("index.html", {
+        "request": request, "qrcode_gerado": qrcode_base64, "payload_final": payload_pix, "historico": resposta.data, 
+        "creditos_restantes": novos_creditos, "email_usado": email_verificar
+    })
+
+@app.post("/comprar-creditos", response_class=HTMLResponse)
+async def comprar_creditos(request: Request, email_compra: Annotated[str, Form()]):
+    email_limpo = email_compra.strip().lower()
+    
+    # Cria cobrança de R$ 19,90 no Mercado Pago
+    payment_data = {
+        "transaction_amount": 19.90,
+        "description": "Recarga 50 Créditos - QR Pix Pro",
+        "payment_method_id": "pix",
+        "payer": {"email": email_limpo}
     }
-    supabase.table("qrcodes").insert(dados_banco).execute()
     
-    resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(10).execute()
-    historico = resposta.data
+    payment_response = sdk.payment().create(payment_data)
+    payment = payment_response["response"]
     
-    return templates.TemplateResponse(
-        "index.html", 
-        {
-            "request": request, 
-            "qrcode_gerado": qrcode_base64, 
-            "payload_final": payload_pix, 
-            "historico": historico
-        }
-    )
+    pix_copia_cola = payment["point_of_interaction"]["transaction_data"]["qr_code"]
+    pix_qr_base64 = payment["point_of_interaction"]["transaction_data"]["qr_code_base64"]
+    
+    resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
+    return templates.TemplateResponse("index.html", {
+        "request": request, "historico": resposta.data,
+        "checkout_pix": pix_copia_cola, "checkout_qr": f"data:image/png;base64,{pix_qr_base64}", "email_solicitado": email_limpo
+    })
+
+@app.post("/webhook/mercadopago")
+async def webhook_mercadopago(request: Request, response: Response):
+    payload = await request.json()
+    
+    if payload.get("type") == "payment" or payload.get("action") == "payment.created":
+        id_pagamento = payload.get("data", {}).get("id") or payload.get("id")
+        pagamento_info = sdk.payment().get(id_pagamento)["response"]
+        
+        if pagamento_info.get("status") == "approved":
+            email_pagador = pagamento_info["payer"]["email"].lower()
+            
+            existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
+            
+            if existe.data:
+                creditos_atuais = existe.data[0]["creditos"] + 50
+                supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
+            else:
+                supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
+                
+    return Response(status_code=status.HTTP_200_OK)
