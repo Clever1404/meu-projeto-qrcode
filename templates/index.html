@@ -236,25 +236,25 @@
                     <p class="text-indigo-300 text-2xs mt-2">Liberação automática após o pagamento.</p>
                 </div>
 
-                <!-- O SCRIPT JAVASCRIPT INTELIGENTE FIQUE EMBUTIDO AQUI -->
+                <!-- O SCRIPT JAVASCRIPT ULTRA-RESISTENTE -->
                 <script>
                     const emailSolicitado = "{{ email_solicitado or email_bloqueado }}";
-                    // Define o saldo inicial baseado no que o servidor renderizou (0 se bloqueado)
                     const saldoInicial = parseInt("{{ creditos_atuais or 0 }}", 10);
                     
                     const intervaloChecagem = setInterval(async () => {
                         try {
+                            // Busca o número de créditos em formato de texto simples
                             const resposta = await fetch(`/checar-creditos?email=${encodeURIComponent(emailSolicitado)}`);
-                            const dados = await resposta.json();
+                            const textoSaldo = await resposta.text(); 
+                            const saldoAtual = parseInt(textoSaldo, 10);
                             
-                            // SE O SALDO ATUAL FOR MAIOR QUE O SALDO INICIAL, O PIX FOI CONFIRMADO!
-                            if (dados.creditos > saldoInicial) {
-                                clearInterval(intervaloChecagem); // Para o relógio de consulta
+                            // SE O SALDO SUBIU, SUBSTITUI A TELA DO QR CODE IMEDIATAMENTE
+                            if (!isNaN(saldoAtual) && saldoAtual > saldoInicial) {
+                                clearInterval(intervaloChecagem); // Para o loop
                                 
-                                // Localiza o painel do Mercado Pago pelo ID exclusivo
                                 const painelMERCADO = document.getElementById('painel-mercado-pago');
                                 if (painelMERCADO) {
-                                    // Remove as cores escuras de cobrança e aplica o estilo verde de sucesso
+                                    // Remove o fundo escuro do Mercado Pago e insere o painel de sucesso
                                     painelMERCADO.className = "bg-green-50 p-6 rounded-2xl border border-green-200 text-center text-gray-800 shadow-sm";
                                     painelMERCADO.innerHTML = `
                                         <div class="p-2 text-center">
@@ -271,11 +271,11 @@
                                 }
                             }
                         } catch (erro) {
-                            console.error("Aguardando confirmação do pagamento no Mercado Pago...", erro);
+                            console.error("Aguardando confirmação do pagamento...", erro);
                         }
-                    }, 4000); // Roda a cada 4 segundos
+                    }, 4000); // Executa a cada 4 segundos
                 </script>
-
+                
                 {% elif qrcode_gerado %}
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
                     <span class="text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full">QR Code Ativo</span>
