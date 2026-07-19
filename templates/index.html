@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador de Pix Dinâmico</title>
+    <title>Gerador de Pix</title>
     <script src="https://jsdelivr.net"></script>
 </head>
 <body class="container" style="padding-top: 2rem; max-width: 800px;">
@@ -14,7 +14,7 @@
             <div class="grid">
                 <div>
                     <label for="chave">Chave Pix:</label>
-                    <input type="text" id="chave" name="chave" placeholder="CPF, Celular, E-mail ou EVP" required>
+                    <input type="text" id="chave" name="chave" placeholder="CPF, Celular, E-mail ou Chave Aleatória" required>
                 </div>
                 <div>
                     <label for="nome">Nome do Beneficiário:</label>
@@ -29,7 +29,8 @@
                 </div>
                 <div>
                     <label for="valor">Valor (R$):</label>
-                    <input type="number" id="valor" name="valor" step="0.01" min="0.00" value="0.00" placeholder="0.00 (Zero para valor aberto)" required>
+                    <input type="number" id="valor" name="valor" step="0.01" min="0.00" value="0.00" required>
+                    <small>Insira 0.00 se quiser permitir que o pagador digite o valor.</small>
                 </div>
             </div>
 
@@ -44,13 +45,26 @@
             <label for="copia_cola">Código Pix Copia e Cola:</label>
             <textarea id="copia_cola" readonly style="font-family: monospace; font-size: 0.85rem;" rows="3">{{ payload_final }}</textarea>
             
-            <a href="{{ qrcode_gerado }}" download="pix_qrcode.png" role="button" class="secondary">Baixar QR Code</a>
+            <div class="grid">
+                <button onclick="copiarCodigo()" class="contrast">Copiar Código</button>
+                <a href="{{ qrcode_gerado }}" download="pix_qrcode.png" role="button" class="secondary">Baixar QR Code</a>
+            </div>
         </article>
+
+        <script>
+            function copiarCodigo() {
+                var copyText = document.getElementById("copia_cola");
+                copyText.select();
+                copyText.setSelectionRange(0, 99999);
+                navigator.clipboard.writeText(copyText.value);
+                alert("Código Pix copiado para a área de transferência!");
+            }
+        </script>
         {% endif %}
 
         <hr style="margin: 3rem 0;">
 
-        <h2>Últimas Cobranças Geradas</h2>
+        <h2>Últimas Cobranças Salvas no Banco</h2>
         <figure>
             <table>
                 <thead>
@@ -67,7 +81,7 @@
                         <td>{{ item.nome }}</td>
                         <td><strong>R$ {{ "%.2f"|format(item.valor) }}</strong></td>
                         <td><code>{{ item.chave }}</code></td>
-                        <td><small>{{ item.created_at[:16] }}</small></td>
+                        <td><small>{{ item.created_at[:16].replace('T', ' ') }}</small></td>
                     </tr>
                     {% else %}
                     <tr>
