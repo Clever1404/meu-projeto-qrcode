@@ -28,62 +28,69 @@ def limpar_texto(texto):
     ).upper().strip()
 
 def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
-    # --- FORMATAÇÃO DE CHAVE EXCLUSIVA PARA O BB ---
-    chave_limpa = chave.strip()
-    # Se for um número de telefone e não começar com +, adiciona o +55 padrão nacional
-    if chave_limpa.isdigit() and len(chave_limpa) >= 10 and len(chave_limpa) <= 11:
-        chave_limpa = f"+55{chave_limpa}"
-    elif chave_limpa.isdigit() and len(chave_limpa) == 13 and not chave_limpa.startswith("+"):
-        chave_limpa = f"+{chave_limpa}"
+    # --- AJUSTE DE CAIXA EXCLUSIVO PARA O BANCO DO BRASIL ---
+    # Chaves Pix (especialmente e-mails) devem ser estritamente minúsculas no padrão DICT do BC.
+    if "@" in chave:
+        chave_limpa = chave.strip().lower()
+    else:
+        # CPF, CNPJ, Telefone ou Chaves Aleatórias removem espaços e mantêm o padrão digitado
+        chave_limpa = chave.strip()
+        # Se for celular sem o DDI nacional, insere automaticamente (+55)
+        if chave_limpa.isdigit() and len(chave_limpa) in [10, 11]:
+            chave_limpa = f"+55{chave_limpa}"
     
+    # Nome e Cidade do Comerciante são obrigatórios em MAIÚSCULAS no padrão EMV
     nome = limpar_texto(nome)[:25]
     cidade = limpar_texto(cidade)[:15]
-    txid = limpar_texto(txid)[:25]
     
+    # Tratamento rígido do TXID para o Banco do Brasil (ID 62)
+    txid = limpar_texto(txid)[:25]
     if not txid or txid == "***":
         txid = "***"
 
-    # 00: Indicador do formato
+    # 00: Indicador do formato da Payload
     payload = "000201"
     
-    # 26: Merchant Account Information
+    # 26: Dados da Conta do Recebedor (Chave Pix)
     gui = "0014BR.GOV.BCB.PIX"
     sub_bloco_chave = f"01{len(chave_limpa):02d}{chave_limpa}"
     merchant_account = gui + sub_bloco_chave
     payload += f"26{len(merchant_account):02d}{merchant_account}"
     
-    # 52: Merchant Category Code (Fixo)
+    # 52: Merchant Category Code (Código de Categoria Comercial - Fixo)
     payload += "52040000"
     
-    # 53: Transaction Currency (Fixo: 986 para Real)
+    # 53: Transaction Currency (Moeda: 986 para Real - Fixo)
     payload += "5303986"
     
-    # 54: Transaction Amount (OBRIGATÓRIO para o Banco do Brasil)
-    # Se o valor for 0, enviamos explicitamente 0.00 para o BB não rejeitar
+    # 54: Transaction Amount (Valor da Cobrança)
+    # O Banco do Brasil EXIGE a tag de valor ativo. Se for zero, vai como 0.00 explicitamente.
     valor_str = f"{valor:.2f}"
     payload += f"54{len(valor_str):02d}{valor_str}"
     
-    # 58: Country Code (Fixo: BR)
+    # 58: Country Code (Código do País: BR - Fixo)
     payload += "5802BR"
     
-    # 59: Merchant Name
+    # 59: Merchant Name (Nome do Beneficiário)
     payload += f"59{len(nome):02d}{nome}"
     
-    # 60: Merchant City
+    # 60: Merchant City (Cidade do Beneficiário)
     payload += f"60{len(cidade):02d}{cidade}"
     
-    # 62: Additional Data Field Template (TXID)
+    # 62: Additional Data Field Template (Envelope do TXID)
+    # O BB valida rigidamente a contagem interna do campo '05' dentro do '62' (62070503***)
     additional_data = f"05{len(txid):02d}{txid}"
     payload += f"62{len(additional_data):02d}{additional_data}"
     
-    # 63: Indicador do CRC
+    # 63: Indicador do final da string para o cálculo do CRC
     payload += "6304"
     
-    # Cálculo do CRC16 CCITT
+    # Cálculo matemático do CRC16 CCITT
     crc16 = crcmod.mkCrcFun(poly=0x11021, initCrc=0xFFFF, rev=False, xorOut=0x0000)
     crc_code = hex(crc16(payload.encode('utf-8')))[2:].upper().zfill(4)
     
     return payload + crc_code
+
 
 def gerar_base64_qrcode(payload_pix: str) -> str:
     """Gera a imagem na memória com o nível médio de correção solicitado"""
