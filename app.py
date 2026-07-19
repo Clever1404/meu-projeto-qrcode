@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from supabase import create_client, Client
 from fastapi.staticfiles import StaticFiles # <-- ADICIONE ESTA LINHA
+from fastapi.responses import PlainTextResponse
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -261,10 +262,11 @@ async def webhook_mercadopago(
                 
     return Response(status_code=status.HTTP_200_OK)
 
-# CONSULTA DE SALDO SEGURO
-@app.get("/checar-creditos")
+# ROTA DE CONSULTA REFORÇADA COM TEXTO PURO (IMPOSSÍVEL DO NAVEGADOR BLOQUEAR)
+@app.get("/checar-creditos", response_class=PlainTextResponse)
 async def checar_creditos(email: str):
     user_query = supabase.table("usuarios_pagos").select("creditos").eq("email", email.strip().lower()).execute()
     if user_query.data and len(user_query.data) > 0:
-        return {"creditos": user_query.data[0]["creditos"]}
-    return {"creditos": 0}
+        # Retorna apenas o número puro em formato de texto (Ex: "50")
+        return str(user_query.data[0]["creditos"])
+    return "0"
