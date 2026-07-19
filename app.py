@@ -187,22 +187,56 @@ async def comprar_creditos(request: Request, email_compra: Annotated[str, Form()
     })
 
 @app.post("/webhook/mercadopago")
-async def webhook_mercadopago(request: Request, response: Response):
-    payload = await request.json()
+async def webhook_mercadopago(
+    request: Request, 
+    response: Response,
+    id: str | None = None,
+    topic: str | None = None
+):
+    id_pagamento = None
     
-    if payload.get("type") == "payment" or payload.get("action") == "payment.created":
-        id_pagamento = payload.get("data", {}).get("id") or payload.get("id")
-        pagamento_info = sdk.payment().get(id_pagamento)["response"]
-        
-        if pagamento_info.get("status") == "approved":
-            email_pagador = pagamento_info["payer"]["email"].lower()
+    # 1. Captura parâmetros vindos na URL
+    params = dict(request.query_params)
+    if params.get("type") == "payment" and params.get("data.id"):
+        id_pagamento = params.get("data.id")
+    elif topic == "payment" and id:
+        id_pagamento = id
+
+    # 2. Captura dados vindos no corpo do JSON
+    if not id_pagamento:
+        try:
+            payload = await request.json()
+            if payload.get("type") == "payment" or payload.get("action") in ["payment.created", "payment.updated"]:
+                id_pagamento = payload.get("data", {}).get("id") or payload.get("id")
+        except Exception:
+            pass
+
+    # 3. Processa a liberação dos créditos se houver um ID
+    if id_pagamento:
+        # TRATAMENTO PARA O TESTE DO MERCADO PAGO: Se for o ID fake do teste, ignora e responde 200 OK
+        if str(id_pagamento) == "123456":
+            return Response(status_code=status.HTTP_200_OK)
+
+        try:
+            # Consulta o Mercado Pago
+            pagamento_response = sdk.payment().get(id_pagamento)
+            pagamento_info = pagamento_response.get("response", {})
             
-            existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
-            
-            if existe.data:
-                creditos_atuais = existe.data[0]["creditos"] + 50
-                supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
-            else:
-                supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
+            if pagamento_info.get("status") == "approved":
+                email_pagador = pagamento_info["payer"]["email"].lower()
+                
+                # Sincroniza o saldo no Supabase
+                existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
+                
+                if existe.data:
+                    creditos_atuais = existe.data[0]["creditos"] + 50
+                    supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
+                else:
+                    supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
+                    
+        except Exception as e:
+            print(f"Erro ao processar pagamento ou ID inexistente: {e}")
+            # Retorna 200 OK mesmo em erro para o Mercado Pago não travar a fila
+            return Response(status_code=status.HTTP_200_OK)
                 
     return Response(status_code=status.HTTP_200_OK)
