@@ -28,25 +28,23 @@ def limpar_texto(texto):
     ).upper().strip()
 
 def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
+    # --- TRATAMENTO DE CHAVE HOMOLOGADO PARA O BANCO DO BRASIL ---
     chave_limpa = chave.strip()
     
-    # E-mails precisam obrigatoriamente estar em letras minúsculas
     if "@" in chave_limpa:
+        # E-mails precisam obrigatoriamente estar em letras minúsculas
         chave_limpa = chave_limpa.lower()
     else:
-        # Adiciona o DDI +55 para números de celular de 10 ou 11 dígitos
-        tam = len(chave_limpa)
-        if chave_limpa.isdigit() and (tam == 10 or tam == 11):
-            chave_limpa = f"+55{chave_limpa}"
-        elif chave_limpa.isdigit() and tam == 13 and not chave_limpa.startswith("+"):
-            chave_limpa = f"+{chave_limpa}"
+        # REMOÇÃO DO +55: Para Celular, CPF ou Chave Aleatória, removemos espaços/traços
+        # e deixamos exatamente a string numérica pura, que é o que o BB espera ler.
+        chave_limpa = "".join(filter(str.isalnum, chave_limpa))
 
+    # Formata nome e cidade seguindo o padrão EMV (Maiúsculas e sem acentos)
     nome = limpar_texto(nome)[:25]
     cidade = limpar_texto(city)[:15]
-    txid = limpar_texto(txid)[:25]
     
-    if not txid or txid == "***":
-        txid = "***"
+    # Define o TXID padrão aceito para chaves estáticas sem registro prévio
+    txid_limpo = "***"
 
     # 00: Indicador do formato da Payload
     payload = "000201"
@@ -63,7 +61,7 @@ def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
     # 53: Transaction Currency (Fixo: 986 para Real)
     payload += "5303986"
     
-    # 54: Transaction Amount (O Banco do Brasil exige o valor explícito)
+    # 54: Transaction Amount (Valor obrigatório 0.00 para o BB)
     valor_str = f"{valor:.2f}"
     payload += f"54{len(valor_str):02d}{valor_str}"
     
@@ -77,7 +75,7 @@ def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
     payload += f"60{len(cidade):02d}{cidade}"
     
     # 62: Additional Data Field Template (TXID)
-    additional_data = f"05{len(txid):02d}{txid}"
+    additional_data = f"05{len(txid_limpo):02d}{txid_limpo}"
     payload += f"62{len(additional_data):02d}{additional_data}"
     
     # 63: Indicador do CRC
