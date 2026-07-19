@@ -107,7 +107,7 @@ async def pagina_inicial(request: Request):
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
     return templates.TemplateResponse("index.html", {"request": request, "historico": resposta.data})
 
-# ROTA PRINCIPAL CORRIGIDA PARA LER A LISTA DO SUPABASE
+# ROTA RAIZ CORRIGIDA
 @app.post("/", response_class=HTMLResponse)
 async def criar_qrcode(
     request: Request,
@@ -136,16 +136,17 @@ async def criar_qrcode(
     
     if not user_query.data or len(user_query.data) == 0:
         user_insert = supabase.table("usuarios_pagos").insert({"email": email_verificar, "creditos": 3}).execute()
-        user_data = user_insert.data[0] # CORREÇÃO: Acessa o primeiro item da lista criada
+        user_data = user_insert.data[0] # CORREÇÃO: índice de objeto na lista
     else:
-        user_data = user_query.data[0] # CORREÇÃO: Acessa o primeiro item da lista encontrada
+        user_data = user_query.data[0] # CORREÇÃO: índice de objeto na lista
 
     if user_data["creditos"] <= 0:
         resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
         return templates.TemplateResponse("index.html", {
             "request": request, "historico": resposta.data,
             "erro_pagamento": "Seus 3 créditos de teste acabaram. Digite seu e-mail abaixo para adquirir mais créditos.",
-            "email_bloqueado": email_verificar
+            "email_bloqueado": email_verificar,
+            "creditos_atuais": 0
         })
 
     novos_creditos = user_data["creditos"] - 1
@@ -159,7 +160,7 @@ async def criar_qrcode(
     
     return templates.TemplateResponse("index.html", {
         "request": request, "qrcode_gerado": qrcode_base64, "payload_final": payload_pix, "historico": resposta.data, 
-        "creditos_restantes": novos_creditos, "email_usado": email_verificar
+        "creditos_restantes": novos_creditos, "email_usado": email_verificar, "creditos_atuais": novos_creditos
     })
 
    
@@ -210,9 +211,9 @@ async def comprar_creditos(
             "request": request, "historico": resposta.data,
             "erro_pagamento": "Ocorreu um erro de comunicação com o Mercado Pago. Tente novamente mais tarde."
         })
-        
 
-# WEBHOOK CORRIGIDO PARA LER LISTA DO SUPABASE NO INDEX [0]
+
+# WEBHOOK ATUALIZADO COM O ÍNDICE CORRETO DA LISTA
 @app.post("/webhook/mercadopago")
 async def webhook_mercadopago(
     request: Request, 
@@ -247,9 +248,8 @@ async def webhook_mercadopago(
                 email_pagador = pagamento_info["payer"]["email"].lower()
                 existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
                 
-                # CORREÇÃO CRÍTICA AQUI: Acessa o índice [0] da lista
                 if existe.data and len(existe.data) > 0:
-                    usuario_atual = existe.data[0] # Índice [0] adicionado
+                    usuario_atual = existe.data[0] # CORREÇÃO: Pega o primeiro dicionário da lista
                     creditos_atuais = usuario_atual["creditos"] + 50
                     supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
                 else:
@@ -261,7 +261,7 @@ async def webhook_mercadopago(
                 
     return Response(status_code=status.HTTP_200_OK)
 
-# ROTA ADICIONAL: API rápida para o HTML checar o saldo sem precisar dar refresh na página
+# CONSULTA DE SALDO SEGURO
 @app.get("/checar-creditos")
 async def checar_creditos(email: str):
     user_query = supabase.table("usuarios_pagos").select("creditos").eq("email", email.strip().lower()).execute()
