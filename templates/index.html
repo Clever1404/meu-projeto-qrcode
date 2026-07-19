@@ -3,83 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador Pix Estrito</title>
+    <title>QR Pix Pro - Sistema Inteligente</title>
     <script src="https://jsdelivr.net"></script>
+    <link rel="stylesheet" href="https://cloudflare.com">
 </head>
-<body class="container" style="padding-top: 2rem; max-width: 800px;">
-    <main>
-        <h1 style="text-align: center;">Gerador de QR Code Pix com Histórico</h1>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <nav class="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-qrcode text-indigo-600 text-2xl"></i>
+                <span class="font-extrabold text-xl text-gray-900">QR<span class="text-indigo-600">Pix</span> Pro</span>
+            </div>
+            <span class="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">Homologado BB</span>
+        </div>
+    </nav>
+
+    <main class="max-w-5xl mx-auto px-4 py-10">
         
-        <form method="post" style="margin-top: 2rem;">
-            <div class="grid">
-                <div>
-                    <label for="chave">Chave Pix:</label>
-                    <input type="text" id="chave" name="chave" placeholder="E-mail, CPF, Telefone ou EVP" required>
-                </div>
-                <div>
-                    <label for="nome">Nome do Beneficiário:</label>
-                    <input type="text" id="nome" name="nome" placeholder="Ex: Cleverson Katsuo Nakazawa" maxlength="25" required>
-                </div>
+        <!-- Alertas de Erro ou Saldo -->
+        {% if erro_pagamento %}
+        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl mb-8 flex items-start space-x-3">
+            <i class="fa-solid fa-triangle-exclamation text-red-500 text-xl mt-0.5"></i>
+            <div>
+                <p class="text-red-800 font-bold">Acesso Restrito</p>
+                <p class="text-red-700 text-sm">{{ erro_pagamento }}</p>
             </div>
-
-            <div class="grid">
-                <div>
-                    <label for="cidade">Cidade:</label>
-                    <input type="text" id="cidade" name="cidade" placeholder="CURITIBA" maxlength="15" required>
-                </div>
-                <div>
-                    <label for="valor">Valor (R$):</label>
-                    <input type="number" id="valor" name="valor" step="0.01" min="0.00" value="0.00" required>
-                </div>
-            </div>
-
-            <button type="submit" style="margin-top: 1rem;">Gerar QR Code Dinâmico</button>
-        </form>
-
-        {% if qrcode_gerado %}
-        <article style="text-align: center; margin-top: 2rem;">
-            <h3>QR Code Pronto para Leitura</h3>
-            <img src="{{ qrcode_gerado }}" alt="QR Code Pix" style="max-width: 250px; border: 1px solid #ccc; padding: 10px; background: white;"><br><br>
-            
-            <label for="copia_cola">Código Pix Copia e Cola:</label>
-            <textarea id="copia_cola" readonly style="font-family: monospace; font-size: 0.85rem;" rows="3">{{ payload_final }}</textarea>
-            
-            <div class="grid">
-                <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); alert('Código copiado!')" class="contrast">Copiar Código</button>
-                <a href="{{ qrcode_gerado }}" download="pix_qrcode.png" role="button" class="secondary">Baixar Imagem</a>
-            </div>
-        </article>
+        </div>
         {% endif %}
 
-        <hr style="margin: 3rem 0;">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+            
+            <!-- Formulário Principal -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 md:col-span-2">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-sliders text-indigo-500 mr-1"></i> Dados da Cobrança</h2>
+                    {% if creditos_restantes is not none %}
+                    <span class="text-xs bg-indigo-50 text-indigo-700 px-3 py-1 rounded-md font-bold">
+                        Saldo: {{ creditos_restantes }} créditos restantes
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <form method="post" class="space-y-4">
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-2">
+                        <label class="block text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Seu E-mail de Usuário (Controle de Créditos)</label>
+                        <input type="email" name="email_cliente" value="{{ email_usado or email_bloqueado or '' }}" placeholder="Ex: seuemail@gmail.com" required
+                            class="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        <p class="text-gray-400 text-xs mt-1">E-mails novos ganham **3 gerações gratuitas** automaticamente.</p>
+                    </div>
 
-        <h2>Cobranças Registradas no Banco</h2>
-        <figure>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nome</th>
-                        <th>Valor</th>
-                        <th>Chave</th>
-                        <th>Data de Geração</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in historico %}
-                    <tr>
-                        <td>{{ item.nome }}</td>
-                        <td><strong>R$ {{ "%.2f"|format(item.valor) }}</strong></td>
-                        <td><code>{{ item.chave }}</code></td>
-                        <td><small>{{ item.created_at[:16].replace('T', ' ') }}</small></td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4" style="text-align: center;">Nenhum Pix gerado ou encontrado no Supabase.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </figure>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Chave Pix</label>
+                        <input type="text" name="chave" placeholder="CPF, Celular, E-mail ou EVP" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Nome do Beneficiário</label>
+                            <input type="text" name="nome" placeholder="Cleverson K Nakazawa" maxlength="25" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Cidade</label>
+                            <input type="text" name="cidade" placeholder="CURITIBA" maxlength="15" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Valor (R$)</label>
+                        <input type="number" name="valor" step="0.01" min="0.00" value="0.00" required class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md transition duration-200 text-sm">
+                        Gerar QR Code Compatível
+                    </button>
+                </form>
+            </div>
+
+            <!-- Coluna de Resultado / Checkout MP -->
+            <div class="md:col-span-1">
+                {% if checkout_pix %}
+                <!-- Tela de Checkout do Mercado Pago quando estoura o limite grátis -->
+                <div class="bg-gradient-to-br from-indigo-900 to-purple-950 p-6 rounded-2xl shadow-xl text-white text-center">
+                    <i class="fa-brands fa-pix text-green-400 text-4xl mb-2"></i>
+                    <h3 class="font-black text-xl mb-1">Recarregar Créditos</h3>
+                    <p class="text-indigo-200 text-xs mb-4">Adquira 50 créditos por apenas <strong>R$ 19,90</strong></p>
+                    
+                    <div class="bg-white p-3 rounded-xl inline-block mb-4 shadow-inner">
+                        <img src="{{ checkout_qr }}" alt="Pague com Pix" class="w-40 h-40">
+                    </div>
+
+                    <label class="block text-left text-xs font-bold text-indigo-300 mb-1">Código Copia e Cola Mercado Pago:</label>
+                    <input type="text" id="mp_token" value="{{ checkout_pix }}" readonly class="w-full px-3 py-2 bg-indigo-950/50 border border-indigo-800 rounded-lg text-xs font-mono text-indigo-200 mb-4 text-center truncate">
+                    
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('mp_token').value); alert('Pix Mercado Pago copiado!')"
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                        Copiar Pix de Recarga
+                    </button>
+                    <p class="text-indigo-300 text-2xs mt-2"><i class="fa-solid fa-bolt"></i> Liberação automática após o pagamento.</p>
+                </div>
+
+                {% elif qrcode_gerado %}
+                <!-- Resultado do QR Code do cliente -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
+                    <span class="text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full">QR Code Ativo</span>
+                    <div class="my-4 flex justify-center">
+                        <img src="{{ qrcode_gerado }}" alt="QR Code Pix" class="w-44 h-44 border p-2 bg-white rounded-lg">
+                    </div>
+                    <input type="text" id="copia_cola" value="{{ payload_final }}" readonly class="w-full px-3 py-1.5 bg-gray-50 border rounded-lg text-xs font-mono text-gray-500 mb-3 text-center truncate">
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); alert('Código copiado!')" class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-2 rounded-xl transition">Copiar Código</button>
+                </div>
+                {% else %}
+                <div class="bg-gray-100 p-6 rounded-2xl border-2 border-dashed text-center text-gray-400 py-20">
+                    <i class="fa-solid fa-qrcode text-4xl mb-2 text-gray-300"></i>
+                    <p class="text-xs">Preencha os dados e e-mail para processar a cobrança.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Seção Comercial de Planos -->
+        <div class="mt-16 text-center border-t border-gray-200 pt-12">
+            <h2 class="text-xl font-extrabold text-gray-900 mb-6">Como funciona o nosso sistema?</h2>
+            
+            <!-- Grid de Recursos (3 Colunas alinhadas) -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-left max-w-4xl mx-auto mb-10">
+                <!-- Card 1 -->
+                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mb-3">1</div>
+                    <h4 class="font-bold text-sm mb-1 text-gray-800">3 Testes Grátis</h4>
+                    <p class="text-gray-400 text-xs">Insira qualquer e-mail para validar o funcionamento estrito em aplicativos rígidos como o Banco do Brasil.</p>
+                </div>
+                <!-- Card 2 -->
+                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mb-3">2</div>
+                    <h4 class="font-bold text-sm mb-1 text-gray-800">Recargas Rápidas</h4>
+                    <p class="text-gray-400 text-xs">Sempre que precisar de mais envios, faça um Pix no valor de R$ 19,90 direto no painel lateral do site.</p>
+                </div>
+                <!-- Card 3 -->
+                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mb-3">3</div>
+                    <h4 class="font-bold text-sm mb-1 text-gray-800">Saldo Cumulativo</h4>
+                    <p class="text-gray-400 text-xs">Seus créditos adquiridos não expiram e ficam salvos sob o e-mail informado na plataforma.</p>
+                </div>
+            </div>
+            
+            <!-- Bloco Separado de Recarga de Créditos Mercado Pago -->
+            <div class="bg-indigo-50 rounded-2xl p-6 max-w-lg mx-auto text-left border border-indigo-100 shadow-sm">
+                <h4 class="font-extrabold text-base text-indigo-950 mb-1">Precisa recarregar seu saldo agora?</h4>
+                <p class="text-indigo-800 text-xs mb-3">Insira seu e-mail abaixo para gerar o Pix de recarga de 50 créditos.</p>
+                
+                <form action="/comprar-creditos" method="post" class="flex flex-col sm:flex-row gap-2">
+                    <input type="email" name="email_compra" placeholder="Seu e-mail cadastrado" required 
+                        class="flex-1 px-4 py-2.5 bg-white border border-indigo-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md hover:shadow-none transition duration-200 whitespace-nowrap">
+                        Recarregar Saldo
+                    </button>
+                </form>
+            </div>
+        </div>
     </main>
+
+    <!-- Rodapé -->
+    <footer class="bg-white border-t border-gray-100 mt-24 py-6 text-center text-xs text-gray-400">
+        <p>&copy; 2026 QR Pix Pro. Todos os direitos reservados. Homologado conforme Resolução do BC.</p>
+    </footer>
+
 </body>
 </html>
