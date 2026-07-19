@@ -19,61 +19,69 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def limpar_texto(texto):
-    # Remove acentos, caracteres especiais e força letras maiúsculas
+    if not texto:
+        return ""
+    # Remove acentos, força maiúsculas e remove qualquer caractere que não seja letra ou número
     return "".join(
         c for c in unicodedata.normalize('NFD', texto)
         if unicodedata.category(c) != 'Mn'
-    ).upper().replace('$', '').replace('@', '@')
+    ).upper().strip()
 
 def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
-    nome = limpar_texto(nome)[:25] # Limite de caracteres padrão EMV
+    # Garante que a chave mantenha caracteres especiais necessários (como @ no e-mail)
+    if "@" in chave:
+        chave_limpa = chave.strip()
+    else:
+        # Para CPF, CNPJ ou Telefone, remove espaços e hífens
+        chave_limpa = "".join(filter(str.isalnum, chave))
+        
+    nome = limpar_texto(nome)[:25]
     cidade = limpar_texto(cidade)[:15]
+    
+    # Se o TXID for o padrão, usamos a convenção recomendada para Pix Estático
     txid = limpar_texto(txid)[:25]
-    
-    payload_format_indicator = "000201"
-    
-    # --- AJUSTE CRÍTICO: Cálculo dinâmico do Merchant Account para o BB ---
-    gui = "0014BR.GOV.BCB.PIX"
-    sub_bloco_chave = f"01{len(chave):02d}{chave}"
-    merchant_account = gui + sub_bloco_chave
-    merchant_account_len = f"26{len(merchant_account):02d}{merchant_account}"
-    # ----------------------------------------------------------------------
-    
-    merchant_category_code = "52040000"
-    transaction_currency = "5303986"
-    
-    # Formata valor com duas casas decimais e mede o tamanho dinamicamente
-    #valor_str = f"{valor:.2f}"
-    #transaction_amount = f"54{len(valor_str):02d}{valor_str}"
+    if not txid or txid == "***":
+        txid = "***"
 
-    # Procure a parte que adiciona o valor (ID 54) e altere para:
+    # 00: Indicador do formato
+    payload = "000201"
+    
+    # 26: Dados da Conta do Recebedor
+    gui = "0014BR.GOV.BCB.PIX"
+    sub_bloco_chave = f"01{len(chave_limpa):02d}{chave_limpa}"
+    merchant_account = gui + sub_bloco_chave
+    payload += f"26{len(merchant_account):02d}{merchant_account}"
+    
+    # 52: Merchant Category Code (Fixo)
+    payload += "52040000"
+    
+    # 53: Transaction Currency (Fixo: 986 para Real)
+    payload += "5303986"
+    
+    # 54: Transaction Amount (Valor)
+    # Importante: Alguns bancos exigem que o valor vá mesmo se for 0.00, 
+    # enquanto outros preferem omitir. Vamos incluir apenas se for maior que zero.
     if valor > 0:
         valor_str = f"{valor:.2f}"
-        payload += f"54{len(valor_str):02}{valor_str}"
+        payload += f"54{len(valor_str):02d}{valor_str}"
     
-    country_code = "5802BR"
+    # 58: Country Code (Fixo: BR)
+    payload += "5802BR"
     
-    merchant_name = f"59{len(nome):02d}{nome}"
-    merchant_city = f"60{len(cidade):02d}{cidade}"
+    # 59: Merchant Name
+    payload += f"59{len(nome):02d}{nome}"
     
-    # Bloco do TXID formatado rigidamente
+    # 60: Merchant City
+    payload += f"60{len(cidade):02d}{cidade}"
+    
+    # 62: Additional Data Field Template (TXID)
     additional_data = f"05{len(txid):02d}{txid}"
-    additional_data_template = f"62{len(additional_data):02d}{additional_data}"
+    payload += f"62{len(additional_data):02d}{additional_data}"
     
-    # Concatenação da payload base
-    payload = (
-        payload_format_indicator +
-        merchant_account_len +
-        merchant_category_code +
-        transaction_currency +
-        country_code +
-        merchant_name +
-        merchant_city +
-        additional_data_template +
-        "6304"
-    )
+    # 63: Indicador do CRC
+    payload += "6304"
     
-    # Cálculo do CRC16 CCITT
+    # Cálculo do CRC16 CCITT (Garante os 4 dígitos finais corretos)
     crc16 = crcmod.mkCrcFun(poly=0x11021, initCrc=0xFFFF, rev=False, xorOut=0x0000)
     crc_code = hex(crc16(payload.encode('utf-8')))[2:].upper().zfill(4)
     
