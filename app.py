@@ -1,4 +1,4 @@
-import os
+mport os
 import io
 import base64
 import qrcode
@@ -27,24 +27,25 @@ def limpar_texto(texto):
         if unicodedata.category(c) != 'Mn'
     ).upper().strip()
 
-def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
-    # --- AJUSTE DE CAIXA EXCLUSIVO PARA O BANCO DO BRASIL ---
-    # Chaves Pix (especialmente e-mails) devem ser estritamente minúsculas no padrão DICT do BC.
-    if "@" in chave:
-        chave_limpa = chave.strip().lower()
-    else:
-        # CPF, CNPJ, Telefone ou Chaves Aleatórias removem espaços e mantêm o padrão digitado
-        chave_limpa = chave.strip()
-        # Se for celular sem o DDI nacional, insere automaticamente (+55)
-        if chave_limpa.isdigit() and len(chave_limpa) in [10, 11]:
-            chave_limpa = f"+55{chave_limpa}"
+def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
+    # --- TRATAMENTO DA CHAVE PIX PARA O BB ---
+    chave_limpa = chave.strip()
     
+    # Se for e-mail, força letras minúsculas (DICT do Banco Central exige isso)
+    if "@" in chave_limpa:
+        chave_limpa = chave_limpa.lower()
+    else:
+        # Se for celular (somente números e tamanho de DDD + Número), adiciona o DDI +55
+        if chave_limpa.isdigit() and len(chave_limpa) in:
+            chave_limpa = f"+55{chave_limpa}"
+        elif chave_limpa.isdigit() and len(chave_limpa) == 13 and not chave_limpa.startswith("+"):
+            chave_limpa = f"+{chave_limpa}"
+
     # Nome e Cidade do Comerciante são obrigatórios em MAIÚSCULAS no padrão EMV
     nome = limpar_texto(nome)[:25]
-    cidade = limpar_texto(cidade)[:15]
-    
-    # Tratamento rígido do TXID para o Banco do Brasil (ID 62)
+    cidade = limpar_texto(city)[:15]
     txid = limpar_texto(txid)[:25]
+    
     if not txid or txid == "***":
         txid = "***"
 
@@ -64,7 +65,7 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     payload += "5303986"
     
     # 54: Transaction Amount (Valor da Cobrança)
-    # O Banco do Brasil EXIGE a tag de valor ativo. Se for zero, vai como 0.00 explicitamente.
+    # O Banco do Brasil EXIGE a tag de valor ativa. Se for zero, vai como 0.00 explicitamente.
     valor_str = f"{valor:.2f}"
     payload += f"54{len(valor_str):02d}{valor_str}"
     
@@ -78,7 +79,6 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     payload += f"60{len(cidade):02d}{cidade}"
     
     # 62: Additional Data Field Template (Envelope do TXID)
-    # O BB valida rigidamente a contagem interna do campo '05' dentro do '62' (62070503***)
     additional_data = f"05{len(txid):02d}{txid}"
     payload += f"62{len(additional_data):02d}{additional_data}"
     
@@ -90,7 +90,6 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     crc_code = hex(crc16(payload.encode('utf-8')))[2:].upper().zfill(4)
     
     return payload + crc_code
-
 
 def gerar_base64_qrcode(payload_pix: str) -> str:
     """Gera a imagem na memória com o nível médio de correção solicitado"""
