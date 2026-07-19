@@ -166,14 +166,14 @@ async def criar_qrcode(
 
    
 
-# ROTA DE COMPRA DE CRÉDITOS FLEXÍVEL E PROTEGIDA CONTRA ERRO 422
+# ROTA DE COMPRA ATUALIZADA (Garante o e-mail na referência externa)
 @app.post("/comprar-creditos", response_class=HTMLResponse)
 async def comprar_creditos(
     request: Request, 
     email_compra: Annotated[str | None, Form()] = None,
     email_cliente: Annotated[str | None, Form()] = None
 ):
-    # Captura o e-mail enviado de qualquer um dos formulários da página
+    # Captura o e-mail exato digitado na caixinha pelo cliente
     email_final = email_compra or email_cliente
     
     if not email_final:
@@ -185,11 +185,11 @@ async def comprar_creditos(
         
     email_limpo = email_final.strip().lower()
     
-    # Cria a cobrança de R$ 19,90 no Mercado Pago
     payment_data = {
         "transaction_amount": 19.90,
         "description": "Recarga 50 Créditos - QR Pix Pro",
         "payment_method_id": "pix",
+        "external_reference": email_limpo, # <--- CRÍTICO: Guarda o e-mail real aqui!
         "payer": {"email": email_limpo}
     }
     
@@ -210,11 +210,12 @@ async def comprar_creditos(
         resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
         return templates.TemplateResponse("index.html", {
             "request": request, "historico": resposta.data,
-            "erro_pagamento": "Ocorreu um erro de comunicação com o Mercado Pago. Tente novamente mais tarde."
+            "erro_pagamento": "Ocorreu um erro de comunicação com o Mercado Pago. Tente novamente."
         })
 
 
-# WEBHOOK ATUALIZADO COM O ÍNDICE CORRETO DA LISTA
+
+# WEBHOOK ATUALIZADO (Lê a referência externa para salvar o e-mail certo)
 @app.post("/webhook/mercadopago")
 async def webhook_mercadopago(
     request: Request, 
@@ -246,11 +247,15 @@ async def webhook_mercadopago(
             pagamento_info = pagamento_response.get("response", {})
             
             if pagamento_info.get("status") == "approved":
-                email_pagador = pagamento_info["payer"]["email"].lower()
+                # --- BUSCA O E-MAIL REAL DA REFERÊNCIA EXTERNA ---
+                # Se não houver external_reference, ele cai de volta para o payer.email por segurança
+                email_real = pagamento_info.get("external_reference") or pagamento_info["payer"]["email"]
+                email_pagador = email_real.lower().strip()
+                
                 existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
                 
                 if existe.data and len(existe.data) > 0:
-                    usuario_atual = existe.data[0] # CORREÇÃO: Pega o primeiro dicionário da lista
+                    usuario_atual = existe.data[0]
                     creditos_atuais = usuario_atual["creditos"] + 50
                     supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
                 else:
@@ -262,6 +267,7 @@ async def webhook_mercadopago(
                 
     return Response(status_code=status.HTTP_200_OK)
 
+    
 # ROTA DE CONSULTA REFORÇADA COM TEXTO PURO (IMPOSSÍVEL DO NAVEGADOR BLOQUEAR)
 @app.get("/checar-creditos", response_class=PlainTextResponse)
 async def checar_creditos(email: str):
