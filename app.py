@@ -35,10 +35,11 @@ def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
     if "@" in chave_limpa:
         chave_limpa = chave_limpa.lower()
     else:
-        # CORREÇÃO DA SINTAXE: Verifica se tem 10 (fixo) ou 11 (celular) dígitos
-        if chave_limpa.isdigit() and len(chave_limpa) in:
+        # CORREÇÃO DEFINITIVA DA SINTAXE: Sem usar o operador 'in' incompleto
+        tam = len(chave_limpa)
+        if chave_limpa.isdigit() and (tam == 10 or tam == 11):
             chave_limpa = f"+55{chave_limpa}"
-        elif chave_limpa.isdigit() and len(chave_limpa) == 13 and not chave_limpa.startswith("+"):
+        elif chave_limpa.isdigit() and tam == 13 and not chave_limpa.startswith("+"):
             chave_limpa = f"+{chave_limpa}"
 
     # Nome e Cidade do Comerciante são obrigatórios em MAIÚSCULAS no padrão EMV
