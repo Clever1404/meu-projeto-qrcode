@@ -21,32 +21,32 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 def limpar_texto(texto):
     if not texto:
         return ""
-    # Remove acentos, força maiúsculas e remove qualquer caractere que não seja letra ou número
+    # Remove acentos, força maiúsculas e remove caracteres especiais
     return "".join(
         c for c in unicodedata.normalize('NFD', texto)
         if unicodedata.category(c) != 'Mn'
     ).upper().strip()
 
 def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
-    # Garante que a chave mantenha caracteres especiais necessários (como @ no e-mail)
-    if "@" in chave:
-        chave_limpa = chave.strip()
-    else:
-        # Para CPF, CNPJ ou Telefone, remove espaços e hífens
-        chave_limpa = "".join(filter(str.isalnum, chave))
-        
+    # --- FORMATAÇÃO DE CHAVE EXCLUSIVA PARA O BB ---
+    chave_limpa = chave.strip()
+    # Se for um número de telefone e não começar com +, adiciona o +55 padrão nacional
+    if chave_limpa.isdigit() and len(chave_limpa) >= 10 and len(chave_limpa) <= 11:
+        chave_limpa = f"+55{chave_limpa}"
+    elif chave_limpa.isdigit() and len(chave_limpa) == 13 and not chave_limpa.startswith("+"):
+        chave_limpa = f"+{chave_limpa}"
+    
     nome = limpar_texto(nome)[:25]
     cidade = limpar_texto(cidade)[:15]
-    
-    # Se o TXID for o padrão, usamos a convenção recomendada para Pix Estático
     txid = limpar_texto(txid)[:25]
+    
     if not txid or txid == "***":
         txid = "***"
 
     # 00: Indicador do formato
     payload = "000201"
     
-    # 26: Dados da Conta do Recebedor
+    # 26: Merchant Account Information
     gui = "0014BR.GOV.BCB.PIX"
     sub_bloco_chave = f"01{len(chave_limpa):02d}{chave_limpa}"
     merchant_account = gui + sub_bloco_chave
@@ -58,12 +58,10 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     # 53: Transaction Currency (Fixo: 986 para Real)
     payload += "5303986"
     
-    # 54: Transaction Amount (Valor)
-    # Importante: Alguns bancos exigem que o valor vá mesmo se for 0.00, 
-    # enquanto outros preferem omitir. Vamos incluir apenas se for maior que zero.
-    if valor > 0:
-        valor_str = f"{valor:.2f}"
-        payload += f"54{len(valor_str):02d}{valor_str}"
+    # 54: Transaction Amount (OBRIGATÓRIO para o Banco do Brasil)
+    # Se o valor for 0, enviamos explicitamente 0.00 para o BB não rejeitar
+    valor_str = f"{valor:.2f}"
+    payload += f"54{len(valor_str):02d}{valor_str}"
     
     # 58: Country Code (Fixo: BR)
     payload += "5802BR"
@@ -81,7 +79,7 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     # 63: Indicador do CRC
     payload += "6304"
     
-    # Cálculo do CRC16 CCITT (Garante os 4 dígitos finais corretos)
+    # Cálculo do CRC16 CCITT
     crc16 = crcmod.mkCrcFun(poly=0x11021, initCrc=0xFFFF, rev=False, xorOut=0x0000)
     crc_code = hex(crc16(payload.encode('utf-8')))[2:].upper().zfill(4)
     
