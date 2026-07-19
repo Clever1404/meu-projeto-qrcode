@@ -146,7 +146,15 @@ async def criar_qrcode(
     qrcode_base64 = gerar_base64_qrcode(payload_pix)
     
     # Salva histórico geral
-    supabase.table("qrcodes").insert({"url": payload_pix, "image_url": qrcode_base64}).execute()
+    # Substitua pelo mapeamento exato das colunas do seu banco:
+    supabase.table("qrcodes").insert({
+        "chave": chave,
+        "nome": nome,
+        "cidade": cidade,
+        "valor": valor,
+        "payload_pix": payload_pix,
+        "image_url": qrcode_base64
+    }).execute()
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
     
     return templates.TemplateResponse("index.html", {
