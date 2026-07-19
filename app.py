@@ -60,6 +60,7 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     return payload + crc_code
 
 def gerar_base64_qrcode(payload_pix: str) -> str:
+    """Gera a imagem do QR Code na memória do servidor e converte para Base64"""
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_M,
@@ -77,7 +78,7 @@ def gerar_base64_qrcode(payload_pix: str) -> str:
 
 @app.get("/", response_class=HTMLResponse)
 async def pagina_inicial(request: Request):
-    # Busca o histórico no Supabase
+    # Busca as últimas 10 cobranças no banco para o histórico
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(10).execute()
     historico = resposta.data
     return templates.TemplateResponse("index.html", {"request": request, "historico": historico})
@@ -90,13 +91,13 @@ async def criar_qrcode(
     cidade: Annotated[str, Form()],
     valor: Annotated[float, Form()]
 ):
-    # 1. Gera o payload Pix BR Code
+    # 1. Cria a string oficial do Pix Copia e Cola
     payload_pix = gerar_payload_pix_estrito(chave, nome, cidade, valor)
     
-    # 2. Gera o QR Code em Base64
+    # 2. Transforma o código em uma imagem Base64 visível no navegador
     qrcode_base64 = gerar_base64_qrcode(payload_pix)
     
-    # 3. Salva a transação completa no banco do Supabase
+    # 3. Armazena os dados preenchidos no Supabase
     dados_banco = {
         "chave": chave,
         "nome": nome,
