@@ -88,8 +88,8 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
 
 def gerar_base64_qrcode(payload_pix: str) -> str:
     qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_M, # Nível médio evita erros de leitura
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
         box_size=10,
         border=4,
     )
@@ -99,7 +99,11 @@ def gerar_base64_qrcode(payload_pix: str) -> str:
     
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
-    return f"data:image/png;base64,{base64.b64encode(buffer.getvalue()).decode('utf-8')}"
+    img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    
+    # O prefixo 'data:image/png;base64,' é obrigatório para o botão "download" funcionar
+    return f"data:image/png;base64,{img_str}"
+
 
 # --- ROTAS DO SISTEMA FREEMIUM ---
 
@@ -107,7 +111,7 @@ def gerar_base64_qrcode(payload_pix: str) -> str:
 async def pagina_inicial(request: Request):
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
     return templates.TemplateResponse("index.html", {"request": request, "historico": resposta.data})
-    
+
 
 # ROTA PRINCIPAL CORRIGIDA E ALINHADA COM O RETORNO DE ARRAYS DO SUPABASE
 @app.post("/", response_class=HTMLResponse)
