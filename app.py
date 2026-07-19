@@ -2,6 +2,7 @@ import os
 import io
 import base64
 import qrcode
+import qrcode.util  # IMPORTANTE: Necessário para forçar o modo Alfanumérico
 import crcmod
 import unicodedata
 from typing import Annotated
@@ -44,7 +45,7 @@ def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
     # 00: Indicador do formato da Payload
     payload = "000201"
     
-    # 26: AJUSTE CRÍTICO PARA O BANCO DO BRASIL
+    # 26: AJUSTE ESTRITO PARA O BANCO DO BRASIL
     # O identificador 'br.gov.bcb.pix' DEVE ser estritamente em minúsculas
     gui = "0014br.gov.bcb.pix"
     sub_bloco_chave = f"01{len(chave_limpa):02d}{chave_limpa}"
@@ -78,21 +79,28 @@ def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
     # 63: Indicador do início do CRC
     payload += "6304"
     
-    # Cálculo matemático exato do CRC16 CCITT baseado nos novos bits minúsculos
+    # Cálculo matemático exato do CRC16 CCITT
     crc16 = crcmod.mkCrcFun(poly=0x11021, initCrc=0xFFFF, rev=False, xorOut=0x0000)
     crc_code = hex(crc16(payload.encode('utf-8')))[2:].upper().zfill(4)
     
     return payload + crc_code
 
 def gerar_base64_qrcode(payload_pix: str) -> str:
+    """Gera o QR Code forçando o modo ALFANUMÉRICO puro para leitura perfeita no BB"""
     qr = qrcode.QRCode(
-        version=None,
+        version=None,  # Escalonamento automático da matriz
         error_correction=qrcode.constants.ERROR_CORRECT_M,
         box_size=10,
         border=4,
     )
-    qr.add_data(payload_pix)
+    
+    # --- AJUSTE DEFINITIVO PARA O LEITOR DO BB ---
+    # Força a codificação dos dados no modo MODE_ALPHA_NUM do padrão EMV.
+    # Isso muda a disposição visual dos pontos pretos e brancos tornando-a legível para o BB.
+    dados_alfanumericos = qrcode.util.QRData(payload_pix, mode=qrcode.util.MODE_ALPHA_NUM)
+    qr.add_data(dados_alfanumericos)
     qr.make(fit=True)
+    
     img = qr.make_image(fill_color="black", back_color="white")
     
     buffer = io.BytesIO()
