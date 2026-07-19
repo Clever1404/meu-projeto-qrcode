@@ -215,48 +215,78 @@
                 </form>
             </div>
 
-            <!-- Script JavaScript Corrigido para Atualização de Tela Sem Refresh -->
-            {% if checkout_pix %}
-            <script>
-                const emailSolicitado = "{{ email_solicitado }}";
-                
-                // Executa a checagem a cada 4 segundos
-                const intervaloChecagem = setInterval(async () => {
-                    try {
-                        // Busca o saldo atualizado na rota do servidor
-                        const resposta = await fetch(`/checar-creditos?email=${encodeURIComponent(emailSolicitado)}`);
-                        const dados = await resposta.json(); // <-- CORRIGIDO: de reply para resposta
-                        
-                        // Se o saldo for maior que zero, significa que o Webhook já aprovou o pagamento
-                        if (dados.creditos > 0) {
-                            clearInterval(intervaloChecagem); // Para o cronômetro
-                            
-                            // --- ATUALIZAÇÃO VISUAL EM TEMPO REAL ---
-                            // Seleciona o card do Mercado Pago na tela e substitui pelo aviso de sucesso
-                            const painelLateral = document.querySelector('.bg-gradient-to-br');
-                            if (painelLateral) {
-                                painelLateral.innerHTML = `
-                                    <div class="p-2 text-center">
-                                        <div class="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md" style="font-size: 1.5rem; font-weight: bold;">
-                                            ✓
-                                        </div>
-                                        <h3 class="font-black text-xl text-green-400 mb-1">Crédito Liberado!</h3>
-                                        <p class="text-indigo-200 text-xs mb-6">Seus 50 créditos foram adicionados ao e-mail <strong>${emailSolicitado}</strong> com sucesso.</p>
-                                        <button onclick="window.location.href='/'" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
-                                            Começar a Usar
-                                        </button>
-                                    </div>
-                                `;
-                            }
-                        }
-                    } catch (erro) {
-                        console.error("Aguardando confirmação do pagamento no Mercado Pago...", erro);
-                    }
-                }, 4000);
-            </script>
-            {% endif %}
+               <!-- Painel de Exibição Dinâmica (QR Code do Cliente ou Checkout do Mercado Pago) -->
+            <div>
+                {% if checkout_pix %}
+                <div class="bg-gradient-to-br from-indigo-900 to-purple-950 p-6 rounded-2xl shadow-xl text-white text-center">
+                    <h3 class="font-black text-xl mb-1">Recarregar Créditos</h3>
+                    <p class="text-indigo-200 text-xs mb-4">Adquira 50 créditos por apenas <strong>R$ 19,90</strong></p>
+                    
+                    <div class="bg-white p-3 rounded-xl inline-block mb-4 shadow-sm">
+                        <img src="{{ checkout_qr }}" alt="Pague com Pix" class="w-40 h-40">
+                    </div>
 
-           
+                    <label class="block text-left text-xs font-bold text-indigo-300 mb-1">Código Copia e Cola Mercado Pago:</label>
+                    <input type="text" id="mp_token" value="{{ checkout_pix }}" readonly class="w-full px-3 py-1.5 bg-indigo-950/50 border border-indigo-800 rounded-lg text-xs font-mono text-indigo-200 mb-3 text-center truncate">
+                    
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('mp_token').value); alert('Pix Mercado Pago copiado!')"
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md">
+                        Copiar Pix de Recarga
+                    </button>
+                    <p class="text-indigo-300 text-2xs mt-2">Liberação automática após o pagamento.</p>
+                </div>
+
+                <!-- O SCRIPT JAVASCRIPT FICA EMBUTIDO AQUI, DENTRO DO BLOCO DO CHECKOUT -->
+                <script>
+                    const emailSolicitado = "{{ email_solicitado }}";
+                    
+                    const intervaloChecagem = setInterval(async () => {
+                        try {
+                            const resposta = await fetch(`/checar-creditos?email=${encodeURIComponent(emailSolicitado)}`);
+                            const dados = await resposta.json();
+                            
+                            if (dados.creditos > 0) {
+                                clearInterval(intervaloChecagem);
+                                
+                                const painelLateral = document.querySelector('.bg-gradient-to-br');
+                                if (painelLateral) {
+                                    painelLateral.innerHTML = `
+                                        <div class="p-2 text-center">
+                                            <div class="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md" style="font-size: 1.5rem; font-weight: bold; line-height: 48px;">
+                                                ✓
+                                            </div>
+                                            <h3 class="font-black text-xl text-green-400 mb-1">Crédito Liberado!</h3>
+                                            <p class="text-indigo-200 text-xs mb-6">Seus 50 créditos foram adicionados ao e-mail <strong>${emailSolicitado}</strong> com sucesso.</p>
+                                            <button onclick="window.location.href='/'" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
+                                                Começar a Usar
+                                            </button>
+                                        </div>
+                                    `;
+                                }
+                            }
+                        } catch (erro) {
+                            console.error("Aguardando confirmação do pagamento no Mercado Pago...", erro);
+                        }
+                    }, 4000);
+                </script>
+
+                {% elif qrcode_gerado %}
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
+                    <span class="text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full">QR Code Ativo</span>
+                    <div class="my-4 flex justify-center">
+                        <img src="{{ qrcode_gerado }}" alt="QR Code Pix" class="w-44 h-44 border p-2 bg-white rounded-lg border-gray-200">
+                    </div>
+                    <input type="text" id="copia_cola" value="{{ payload_final }}" readonly class="w-full px-3 py-1.5 bg-gray-50 border rounded-lg text-xs font-mono text-gray-500 mb-3 text-center truncate border-gray-200">
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); alert('Código copiado!')" class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-2 rounded-xl shadow-md">Copiar Código</button>
+                </div>
+
+                {% else %}
+                <div class="bg-gray-100 p-6 rounded-2xl border border-gray-200 text-center text-gray-400 py-20" style="border-style:dashed; border-width:2px;">
+                    <p class="text-xs">Preencha os dados e e-mail para processar a cobrança.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
 
         <!-- Seção de Recursos e Benefícios -->
         <div class="mt-16 text-center border-t border-gray-200 pt-12">
