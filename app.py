@@ -28,21 +28,19 @@ def limpar_texto(texto):
     ).upper().strip()
 
 def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
-    # --- TRATAMENTO DA CHAVE PIX PARA O BB ---
     chave_limpa = chave.strip()
     
-    # Se for e-mail, força letras minúsculas (DICT do Banco Central exige isso)
+    # E-mails precisam obrigatoriamente estar em letras minúsculas
     if "@" in chave_limpa:
         chave_limpa = chave_limpa.lower()
     else:
-        # CORREÇÃO DEFINITIVA DA SINTAXE: Sem usar o operador 'in' incompleto
+        # Adiciona o DDI +55 para números de celular de 10 ou 11 dígitos
         tam = len(chave_limpa)
         if chave_limpa.isdigit() and (tam == 10 or tam == 11):
             chave_limpa = f"+55{chave_limpa}"
         elif chave_limpa.isdigit() and tam == 13 and not chave_limpa.startswith("+"):
             chave_limpa = f"+{chave_limpa}"
 
-    # Nome e Cidade do Comerciante são obrigatórios em MAIÚSCULAS no padrão EMV
     nome = limpar_texto(nome)[:25]
     cidade = limpar_texto(city)[:15]
     txid = limpar_texto(txid)[:25]
@@ -53,37 +51,36 @@ def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
     # 00: Indicador do formato da Payload
     payload = "000201"
     
-    # 26: Dados da Conta do Recebedor (Chave Pix)
+    # 26: Merchant Account Information (Chave Pix)
     gui = "0014BR.GOV.BCB.PIX"
     sub_bloco_chave = f"01{len(chave_limpa):02d}{chave_limpa}"
     merchant_account = gui + sub_bloco_chave
     payload += f"26{len(merchant_account):02d}{merchant_account}"
     
-    # 52: Merchant Category Code (Código de Categoria Comercial - Fixo)
+    # 52: Merchant Category Code (Fixo)
     payload += "52040000"
     
-    # 53: Transaction Currency (Moeda: 986 para Real - Fixo)
+    # 53: Transaction Currency (Fixo: 986 para Real)
     payload += "5303986"
     
-    # 54: Transaction Amount (Valor da Cobrança)
-    # O Banco do Brasil EXIGE a tag de valor ativa. Se for zero, vai como 0.00 explicitamente.
+    # 54: Transaction Amount (O Banco do Brasil exige o valor explícito)
     valor_str = f"{valor:.2f}"
     payload += f"54{len(valor_str):02d}{valor_str}"
     
-    # 58: Country Code (Código do País: BR - Fixo)
+    # 58: Country Code (Fixo: BR)
     payload += "5802BR"
     
-    # 59: Merchant Name (Nome do Beneficiário)
+    # 59: Merchant Name
     payload += f"59{len(nome):02d}{nome}"
     
-    # 60: Merchant City (Cidade do Beneficiário)
+    # 60: Merchant City
     payload += f"60{len(cidade):02d}{cidade}"
     
-    # 62: Additional Data Field Template (Envelope do TXID)
+    # 62: Additional Data Field Template (TXID)
     additional_data = f"05{len(txid):02d}{txid}"
     payload += f"62{len(additional_data):02d}{additional_data}"
     
-    # 63: Indicador do final da string para o cálculo do CRC
+    # 63: Indicador do CRC
     payload += "6304"
     
     # Cálculo matemático do CRC16 CCITT
@@ -93,12 +90,12 @@ def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
     return payload + crc_code
 
 def gerar_base64_qrcode(payload_pix: str) -> str:
-    """Gera a imagem na memória com o nível médio de correção solicitado"""
+    """Gera o QR Code expandindo a matriz dinamicamente para evitar pontos esmagados"""
     qr = qrcode.QRCode(
-        version=1,
+        version=None,  # Deixar None faz o qrcode escolher o tamanho ideal baseado no texto
         error_correction=qrcode.constants.ERROR_CORRECT_M,
         box_size=10,
-        border=4,
+        border=4,      # Margem branca necessária para sensores exigentes como o do BB
     )
     qr.add_data(payload_pix)
     qr.make(fit=True)
@@ -123,13 +120,9 @@ async def criar_qrcode(
     cidade: Annotated[str, Form()],
     valor: Annotated[float, Form()]
 ):
-    # 1. Gera o payload Pix estrito corrigido
     payload_pix = gerar_payload_pix_estrito(chave, nome, cidade, valor)
-    
-    # 2. Gera o QR Code em formato de texto Base64 para exibição direta
     qrcode_base64 = gerar_base64_qrcode(payload_pix)
     
-    # 3. Armazena a transação no banco do Supabase
     dados_banco = {
         "chave": chave,
         "nome": nome,
@@ -140,7 +133,6 @@ async def criar_qrcode(
     }
     supabase.table("qrcodes").insert(dados_banco).execute()
     
-    # 4. Busca novamente o histórico atualizado
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(10).execute()
     historico = resposta.data
     
