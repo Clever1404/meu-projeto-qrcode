@@ -3,68 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador de Pix</title>
+    <title>Gerador Pix Estrito</title>
     <script src="https://jsdelivr.net"></script>
 </head>
 <body class="container" style="padding-top: 2rem; max-width: 800px;">
     <main>
-        <h1 style="text-align: center;">Gerador de Pix Copia e Cola & QR Code</h1>
+        <h1 style="text-align: center;">Gerador de QR Code Pix com Histórico</h1>
         
         <form method="post" style="margin-top: 2rem;">
             <div class="grid">
                 <div>
                     <label for="chave">Chave Pix:</label>
-                    <input type="text" id="chave" name="chave" placeholder="CPF, Celular, E-mail ou Chave Aleatória" required>
+                    <input type="text" id="chave" name="chave" placeholder="E-mail, CPF, Telefone ou EVP" required>
                 </div>
                 <div>
                     <label for="nome">Nome do Beneficiário:</label>
-                    <input type="text" id="nome" name="nome" placeholder="Ex: Cleverson K Nakazawa" maxlength="25" required>
+                    <input type="text" id="nome" name="nome" placeholder="Ex: Cleverson Katsuo Nakazawa" maxlength="25" required>
                 </div>
             </div>
 
             <div class="grid">
                 <div>
                     <label for="cidade">Cidade:</label>
-                    <input type="text" id="cidade" name="cidade" placeholder="Ex: CURITIBA" maxlength="15" required>
+                    <input type="text" id="cidade" name="cidade" placeholder="CURITIBA" maxlength="15" required>
                 </div>
                 <div>
                     <label for="valor">Valor (R$):</label>
                     <input type="number" id="valor" name="valor" step="0.01" min="0.00" value="0.00" required>
-                    <small>Insira 0.00 se quiser permitir que o pagador digite o valor.</small>
                 </div>
             </div>
 
-            <button type="submit" style="margin-top: 1rem;">Gerar QR Code Pix</button>
+            <button type="submit" style="margin-top: 1rem;">Gerar QR Code Dinâmico</button>
         </form>
 
         {% if qrcode_gerado %}
         <article style="text-align: center; margin-top: 2rem;">
-            <h3>QR Code Pix Gerado!</h3>
+            <h3>QR Code Pronto para Leitura</h3>
             <img src="{{ qrcode_gerado }}" alt="QR Code Pix" style="max-width: 250px; border: 1px solid #ccc; padding: 10px; background: white;"><br><br>
             
             <label for="copia_cola">Código Pix Copia e Cola:</label>
             <textarea id="copia_cola" readonly style="font-family: monospace; font-size: 0.85rem;" rows="3">{{ payload_final }}</textarea>
             
             <div class="grid">
-                <button onclick="copiarCodigo()" class="contrast">Copiar Código</button>
-                <a href="{{ qrcode_gerado }}" download="pix_qrcode.png" role="button" class="secondary">Baixar QR Code</a>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); alert('Código copiado!')" class="contrast">Copiar Código</button>
+                <a href="{{ qrcode_gerado }}" download="pix_qrcode.png" role="button" class="secondary">Baixar Imagem</a>
             </div>
         </article>
-
-        <script>
-            function copiarCodigo() {
-                var copyText = document.getElementById("copia_cola");
-                copyText.select();
-                copyText.setSelectionRange(0, 99999);
-                navigator.clipboard.writeText(copyText.value);
-                alert("Código Pix copiado para a área de transferência!");
-            }
-        </script>
         {% endif %}
 
         <hr style="margin: 3rem 0;">
 
-        <h2>Últimas Cobranças Salvas no Banco</h2>
+        <h2>Cobranças Registradas no Banco</h2>
         <figure>
             <table>
                 <thead>
@@ -72,7 +61,7 @@
                         <th>Nome</th>
                         <th>Valor</th>
                         <th>Chave</th>
-                        <th>Data</th>
+                        <th>Data de Geração</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -85,7 +74,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" style="text-align: center;">Nenhum registro encontrado no Supabase.</td>
+                        <td colspan="4" style="text-align: center;">Nenhum Pix gerado ou encontrado no Supabase.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
