@@ -275,7 +275,7 @@
                         }
                     }, 4000); // Executa a cada 4 segundos
                 </script>
-                
+
                 {% elif qrcode_gerado %}
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
                     <span class="text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full">QR Code Ativo</span>
@@ -322,6 +322,7 @@
                 <p class="text-indigo-800 text-xs mb-3">Insira seu e-mail abaixo para gerar o Pix de recarga de 50 créditos.</p>
                 
                 <form action="/comprar-creditos" method="post" class="flex sm:Spectrum-flex-row" style="flex-direction:column; gap:0.5rem;">
+                    <!-- O name DEVE ser email_compra -->
                     <input type="email" name="email_compra" placeholder="Seu e-mail cadastrado" required class="flex-1 px-4 py-2.5 bg-white border border-indigo-200 rounded-xl text-sm">
                     <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md whitespace-nowrap">
                         Recarregar Saldo
