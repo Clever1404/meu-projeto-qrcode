@@ -246,7 +246,7 @@
                             const dados = await resposta.json();
                             
                             if (dados.creditos > 0) {
-                                clearInterval(intervaloChecagem);
+                                clearInterval(intervaloChecagem); // Para o cronômetro
                                 
                                 const painelLateral = document.querySelector('.bg-gradient-to-br');
                                 if (painelLateral) {
@@ -257,7 +257,8 @@
                                             </div>
                                             <h3 class="font-black text-xl text-green-400 mb-1">Crédito Liberado!</h3>
                                             <p class="text-indigo-200 text-xs mb-6">Seus 50 créditos foram adicionados ao e-mail <strong>${emailSolicitado}</strong> com sucesso.</p>
-                                            <button onclick="window.location.href='/'" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
+                                            <!-- Botão corrigido para forçar a atualização da página inteira com JavaScript puro -->
+                                            <button onclick="recarregarPagina()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
                                                 Começar a Usar
                                             </button>
                                         </div>
@@ -268,6 +269,11 @@
                             console.error("Aguardando confirmação do pagamento no Mercado Pago...", erro);
                         }
                     }, 4000);
+
+                    // Função auxiliar para garantir o refresh completo limpando o cache da página
+                    function recarregarPagina() {
+                        window.location.reload();
+                    }
                 </script>
 
                 {% elif qrcode_gerado %}
