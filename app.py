@@ -2,7 +2,6 @@ import os
 import io
 import base64
 import qrcode
-import qrcode.util  # IMPORTANTE: Necessário para forçar o modo Alfanumérico
 import crcmod
 import unicodedata
 from typing import Annotated
@@ -22,7 +21,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 def limpar_texto(texto):
     if not texto:
         return ""
-    # Remove acentos, força maiúsculas e limpa espaços extras para o padrão EMV
+    # Remove acentos, força maiúsculas e remove caracteres inválidos para nomes/cidades
     return "".join(
         c for c in unicodedata.normalize('NFD', texto)
         if unicodedata.category(c) != 'Mn'
@@ -31,45 +30,45 @@ def limpar_texto(texto):
 def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
     chave_limpa = chave.strip()
     
-    # Chaves de e-mail e aleatórias devem seguir o padrão original em minúsculas
+    # E-mails precisam estar em minúsculas (padrão Banco Central)
     if "@" in chave_limpa:
         chave_limpa = chave_limpa.lower()
     else:
-        # Remove caracteres não alfanuméricos de celulares e CPFs
+        # CPF, CNPJ e Celular sem letras ou símbolos
         chave_limpa = "".join(filter(str.isalnum, chave_limpa))
 
     nome = limpar_texto(nome)[:25]
     cidade = limpar_texto(city)[:15]
-    txid_limpo = "***"  # Mantém o padrão universal para Pix estático aceito pelo BB
+    
+    # O Banco do Brasil aceita o TXID fixo "***" se a contagem do bloco 62 estiver perfeita
+    txid_limpo = "***"
 
     # 00: Indicador do formato da Payload
     payload = "000201"
     
-    # 26: AJUSTE ESTRITO PARA O BANCO DO BRASIL
-    # O identificador 'br.gov.bcb.pix' DEVE ser estritamente em minúsculas
-    gui = "0014br.gov.bcb.pix"
+    # 26: Informações do arranjo Pix (O padrão oficial do BC aceita maiúsculas aqui se bem estruturado)
+    gui = "0014BR.GOV.BCB.PIX"
     sub_bloco_chave = f"01{len(chave_limpa):02d}{chave_limpa}"
     merchant_account = gui + sub_bloco_chave
     payload += f"26{len(merchant_account):02d}{merchant_account}"
     
-    # 52: Merchant Category Code (Código de Categoria - Fixo)
+    # 52: Merchant Category Code
     payload += "52040000"
     
-    # 53: Transaction Currency (Moeda: 986 para Real - Fixo)
+    # 53: Transaction Currency (986 = Real)
     payload += "5303986"
     
-    # 54: Transaction Amount (Valor da Cobrança)
-    # O BB exige a presença do valor. Enviamos como 0.00 se for aberto.
+    # 54: Transaction Amount (O Banco do Brasil exige o valor 0.00 explícito se for aberto)
     valor_str = f"{valor:.2f}"
     payload += f"54{len(valor_str):02d}{valor_str}"
     
-    # 58: Country Code (Código do País: BR - Fixo)
+    # 58: Country Code
     payload += "5802BR"
     
-    # 59: Merchant Name (Nome do Beneficiário em Maiúsculas)
+    # 59: Merchant Name
     payload += f"59{len(nome):02d}{nome}"
     
-    # 60: Merchant City (Cidade do Beneficiário em Maiúsculas)
+    # 60: Merchant City
     payload += f"60{len(cidade):02d}{cidade}"
     
     # 62: Additional Data Field Template (TXID)
@@ -86,21 +85,15 @@ def gerar_payload_pix_estrito(chave, nome, city, valor, txid="***"):
     return payload + crc_code
 
 def gerar_base64_qrcode(payload_pix: str) -> str:
-    """Gera o QR Code forçando o modo ALFANUMÉRICO puro para leitura perfeita no BB"""
+    """Gera o QR Code com o nível de erro padrão, permitindo leitura em qualquer tamanho"""
     qr = qrcode.QRCode(
-        version=None,  # Escalonamento automático da matriz
+        version=None,
         error_correction=qrcode.constants.ERROR_CORRECT_M,
         box_size=10,
         border=4,
     )
-    
-    # --- AJUSTE DEFINITIVO PARA O LEITOR DO BB ---
-    # Força a codificação dos dados no modo MODE_ALPHA_NUM do padrão EMV.
-    # Isso muda a disposição visual dos pontos pretos e brancos tornando-a legível para o BB.
-    dados_alfanumericos = qrcode.util.QRData(payload_pix, mode=qrcode.util.MODE_ALPHA_NUM)
-    qr.add_data(dados_alfanumericos)
+    qr.add_data(payload_pix)  # Removemos o modo restrito alfanumérico para evitar o ValueError
     qr.make(fit=True)
-    
     img = qr.make_image(fill_color="black", back_color="white")
     
     buffer = io.BytesIO()
