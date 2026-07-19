@@ -236,39 +236,40 @@
                     <p class="text-indigo-300 text-2xs mt-2">Liberação automática após o pagamento.</p>
                 </div>
 
-                <!-- O SCRIPT JAVASCRIPT BLINDADO (CHECA APENAS SE O SALDO É MAIOR QUE ZERO) -->
+                <!-- O SCRIPT JAVASCRIPT COM QUEBRA DE CACHE SEGURO -->
                 <script>
                     const emailSolicitado = "{{ email_solicitado or email_bloqueado }}";
                     
                     const intervaloChecagem = setInterval(async () => {
                         try {
-                            // Busca o número de créditos em formato de texto simples do servidor
-                            const resposta = await fetch(`/checar-creditos?email=${encodeURIComponent(emailSolicitado)}`);
+                            // Quebra de Cache: Adiciona o milissegundo atual na URL para torná-la única
+                            const timestamp_unico = new Date().getTime();
+                            const url_sem_cache = `/checar-creditos?email=${encodeURIComponent(emailSolicitado)}&_nocache=${timestamp_unico}`;
+                            
+                            // Busca o saldo em tempo real na Render sem interferência do navegador
+                            const resposta = await fetch(url_sem_cache);
                             const textoSaldo = await resposta.text(); 
                             const saldoAtual = parseInt(textoSaldo, 10);
                             
-                            // SE O SALDO FOR MAIOR QUE ZERO, O WEBHOOK JÁ APROVOU! MUDAR A TELA NA HORA
+                            // Se o saldo subiu no Supabase, atualiza a interface imediatamente
                             if (!isNaN(saldoAtual) && saldoAtual > 0) {
-                                clearInterval(intervaloChecagem); // Para o relógio de consulta imediatamente
+                                clearInterval(intervaloChecagem); // Para as consultas
                                 
-                                // Localiza o painel do Mercado Pago pelo ID
                                 const painelMERCADO = document.getElementById('painel-mercado-pago');
                                 if (painelMERCADO) {
-                                    // Altera as cores escuras para o estilo verde de sucesso
                                     painelMERCADO.className = "bg-green-50 p-6 rounded-2xl border border-green-200 text-center text-gray-800 shadow-sm";
-                                    painelMERCADO.innerHTML = 
+                                    painelMERCADO.innerHTML = `
                                         <div class="p-2 text-center">
                                             <div class="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md" style="font-size: 1.5rem; font-weight: bold; line-height: 48px;">
                                                 ✓
                                             </div>
                                             <h3 class="font-black text-xl text-green-600 mb-1">Crédito Liberado!</h3>
                                             <p class="text-gray-500 text-xs mb-6">Seus 50 novos créditos foram validados e adicionados com sucesso.</p>
-                                            <!-- Força a atualização da página inteira para recarregar o saldo do topo -->
                                             <button onclick="window.location.reload();" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
                                                 Começar a Usar
                                             </button>
                                         </div>
-                                    ;
+                                    `;
                                 }
                             }
                         } catch (erro) {
