@@ -191,10 +191,13 @@
                         <input type="text" name="chave" placeholder="CPF, Celular, E-mail ou EVP" required class="w-full px-4 py-2.5 bg-gray-50 border-gray-200 rounded-xl text-sm">
                     </div>
 
-                    <div class="grid sm:Spectrum-grid gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1">Nome do Beneficiário</label>
-                            <!-- Continuação do formulário: Cidade e Valor -->
+                    <!-- Campo: Nome do Beneficiário -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Nome do Beneficiário</label>
+                        <input type="text" name="nome" placeholder="Cleverson K Nakazawa" maxlength="25" required class="w-full px-4 py-2.5 bg-gray-50 border-gray-200 rounded-xl text-sm">
+                    </div>
+
+                    <!-- Campos: Cidade e Valor -->
                     <div class="grid sm:Spectrum-grid gap-4">
                         <div>
                             <label class="block text-xs font-bold text-gray-500 mb-1">Cidade</label>
@@ -207,7 +210,7 @@
                     </div>
 
                     <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md text-sm">
-                        Gerar QR Code Compatível
+                        Gerar QR Code Compartível
                     </button>
                 </form>
             </div>
