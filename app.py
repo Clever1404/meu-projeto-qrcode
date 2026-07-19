@@ -18,7 +18,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-ef limpar_texto(texto):
+def limpar_texto(texto):
     # Remove acentos, caracteres especiais e força letras maiúsculas
     return "".join(
         c for c in unicodedata.normalize('NFD', texto)
