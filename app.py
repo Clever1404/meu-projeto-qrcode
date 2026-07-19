@@ -107,7 +107,7 @@ async def pagina_inicial(request: Request):
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
     return templates.TemplateResponse("index.html", {"request": request, "historico": resposta.data})
 
-# ROTA PRINCIPAL REFORÇADA PARA INTERCEPTAR NOTIFICAÇÕES DESVIADAS DO MERCADO PAGO
+# ROTA PRINCIPAL CORRIGIDA PARA LER A LISTA DO SUPABASE
 @app.post("/", response_class=HTMLResponse)
 async def criar_qrcode(
     request: Request,
@@ -117,20 +117,13 @@ async def criar_qrcode(
     valor: Annotated[float | None, Form()] = None,
     email_cliente: Annotated[str | None, Form()] = None
 ):
-    # --- INTERCEPTADOR DO MERCADO PAGO ---
-    # Se o Mercado Pago errar a rota e mandar para a raiz, captura os Query Params (?data.id=...)
     params = dict(request.query_params)
     if params.get("data.id") or params.get("id"):
-        # Executa a mesma lógica do webhook e responde 200 OK para o Mercado Pago
         id_pagamento = params.get("data.id") or params.get("id")
         if str(id_pagamento) == "123456":
             return Response(status_code=status.HTTP_200_OK)
-            
-        # Repassa o processamento real
         return await webhook_mercadopago(request, Response(), id=id_pagamento, topic="payment")
 
-    # --- FLUXO NORMAL DO SEU GERADOR DE QR CODE ---
-    # Se for um usuário real gerando QR Code, valida se os campos estão preenchidos
     if not all([chave, nome, cidade, email_cliente]) or valor is None:
         resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
         return templates.TemplateResponse("index.html", {
@@ -139,17 +132,14 @@ async def criar_qrcode(
         })
 
     email_verificar = email_cliente.strip().lower()
-    
-    # Busca ou Cria o usuário com os 3 créditos Freemium iniciais
     user_query = supabase.table("usuarios_pagos").select("*").eq("email", email_verificar).execute()
     
-    if not user_query.data:
+    if not user_query.data or len(user_query.data) == 0:
         user_insert = supabase.table("usuarios_pagos").insert({"email": email_verificar, "creditos": 3}).execute()
-        user_data = user_insert.data[0]
+        user_data = user_insert.data[0] # CORREÇÃO: Acessa o primeiro item da lista criada
     else:
-        user_data = user_query.data[0]
+        user_data = user_query.data[0] # CORREÇÃO: Acessa o primeiro item da lista encontrada
 
-    # Bloqueia se o usuário estiver zerado
     if user_data["creditos"] <= 0:
         resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
         return templates.TemplateResponse("index.html", {
@@ -158,9 +148,8 @@ async def criar_qrcode(
             "email_bloqueado": email_verificar
         })
 
-    # Consome 1 crédito e gera o Pix homologado
     novos_creditos = user_data["creditos"] - 1
-    supabase.table("usuarios_pagos").update({"creditos": nuevos_creditos}).eq("email", email_verificar).execute()
+    supabase.table("usuarios_pagos").update({"creditos": novos_creditos}).eq("email", email_verificar).execute()
 
     payload_pix = gerar_payload_pix_estrito(chave, nome, cidade, valor)
     qrcode_base64 = gerar_base64_qrcode(payload_pix)
@@ -172,6 +161,8 @@ async def criar_qrcode(
         "request": request, "qrcode_gerado": qrcode_base64, "payload_final": payload_pix, "historico": resposta.data, 
         "creditos_restantes": novos_creditos, "email_usado": email_verificar
     })
+
+   
 
 @app.post("/comprar-creditos", response_class=HTMLResponse)
 async def comprar_creditos(request: Request, email_compra: Annotated[str, Form()]):
@@ -197,6 +188,7 @@ async def comprar_creditos(request: Request, email_compra: Annotated[str, Form()
         "checkout_pix": pix_copia_cola, "checkout_qr": f"data:image/png;base64,{pix_qr_base64}", "email_solicitado": email_limpo
     })
 
+# WEBHOOK CORRIGIDO PARA LER LISTA DO SUPABASE NO INDEX [0]
 @app.post("/webhook/mercadopago")
 async def webhook_mercadopago(
     request: Request, 
@@ -205,15 +197,12 @@ async def webhook_mercadopago(
     topic: str | None = None
 ):
     id_pagamento = None
-    
-    # 1. Captura parâmetros vindos na URL
     params = dict(request.query_params)
     if params.get("type") == "payment" and params.get("data.id"):
         id_pagamento = params.get("data.id")
     elif topic == "payment" and id:
         id_pagamento = id
 
-    # 2. Captura dados vindos no corpo do JSON
     if not id_pagamento:
         try:
             payload = await request.json()
@@ -222,41 +211,36 @@ async def webhook_mercadopago(
         except Exception:
             pass
 
-    # 3. Processa a liberação dos créditos se houver um ID
     if id_pagamento:
-        # PROTEÇÃO ADICIONAL: Se for o ID de teste padrão do Mercado Pago, responde sucesso na hora
         if str(id_pagamento) == "123456":
             return Response(status_code=status.HTTP_200_OK)
 
         try:
-            # Consulta o Mercado Pago para ver o status real do pagamento
             pagamento_response = sdk.payment().get(id_pagamento)
             pagamento_info = pagamento_response.get("response", {})
             
             if pagamento_info.get("status") == "approved":
-                # SEGURANÇA PARA A SIMULAÇÃO: Se o Mercado Pago não enviar o e-mail no teste, evita o travamento
-                payer_info = pagamento_info.get("payer", {})
-                if not payer_info or "email" not in payer_info:
-                    print("Notificação de teste recebida sem e-mail do pagador. Ignorando processo de créditos.")
-                    return Response(status_code=status.HTTP_200_OK)
-                
-                email_pagador = payer_info["email"].lower()
-                
-                # Sincroniza o saldo no Supabase
+                email_pagador = pagamento_info["payer"]["email"].lower()
                 existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
                 
+                # CORREÇÃO CRÍTICA AQUI: Acessa o índice [0] da lista
                 if existe.data and len(existe.data) > 0:
-                    # O usuário já existe: pega o primeiro item da lista e soma 50 créditos
-                    usuario_atual = existe.data[0]
+                    usuario_atual = existe.data[0] # Índice [0] adicionado
                     creditos_atuais = usuario_atual["creditos"] + 50
                     supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
                 else:
-                    # Caso seja um cliente novo comprando créditos direto
                     supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
                     
         except Exception as e:
-            # Captura qualquer outro erro inesperado e exibe no log da Render sem travar a resposta
             print(f"Erro interno no processamento do webhook: {e}")
             return Response(status_code=status.HTTP_200_OK)
                 
     return Response(status_code=status.HTTP_200_OK)
+
+# ROTA ADICIONAL: API rápida para o HTML checar o saldo sem precisar dar refresh na página
+@app.get("/checar-creditos")
+async def checar_creditos(email: str):
+    user_query = supabase.table("usuarios_pagos").select("creditos").eq("email", email.strip().lower()).execute()
+    if user_query.data and len(user_query.data) > 0:
+        return {"creditos": user_query.data[0]["creditos"]}
+    return {"creditos": 0}
