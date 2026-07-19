@@ -10,9 +10,13 @@ from fastapi import FastAPI, Request, Form, status, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from supabase import create_client, Client
+from fastapi.staticfiles import StaticFiles # <-- ADICIONE ESTA LINHA
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+
+# <-- ADICIONE ESTA LINHA ABAIXO PARA ATIVAR A PASTA LOCAL -->
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Configurações do Mercado Pago e Supabase via Variáveis de Ambiente
 MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN")
