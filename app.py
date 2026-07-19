@@ -107,8 +107,9 @@ def gerar_base64_qrcode(payload_pix: str) -> str:
 async def pagina_inicial(request: Request):
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
     return templates.TemplateResponse("index.html", {"request": request, "historico": resposta.data})
+    
 
-# ROTA RAIZ CORRIGIDA
+# ROTA PRINCIPAL CORRIGIDA E ALINHADA COM O RETORNO DE ARRAYS DO SUPABASE
 @app.post("/", response_class=HTMLResponse)
 async def criar_qrcode(
     request: Request,
@@ -118,6 +119,7 @@ async def criar_qrcode(
     valor: Annotated[float | None, Form()] = None,
     email_cliente: Annotated[str | None, Form()] = None
 ):
+    # Interceptador para notificações do Mercado Pago direcionadas à raiz
     params = dict(request.query_params)
     if params.get("data.id") or params.get("id"):
         id_pagamento = params.get("data.id") or params.get("id")
@@ -125,6 +127,7 @@ async def criar_qrcode(
             return Response(status_code=status.HTTP_200_OK)
         return await webhook_mercadopago(request, Response(), id=id_pagamento, topic="payment")
 
+    # Validação do formulário de geração de QR Code
     if not all([chave, nome, cidade, email_cliente]) or valor is None:
         resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
         return templates.TemplateResponse("index.html", {
@@ -133,30 +136,42 @@ async def criar_qrcode(
         })
 
     email_verificar = email_cliente.strip().lower()
+    
+    # 1. Consulta o saldo do usuário no Supabase
     user_query = supabase.table("usuarios_pagos").select("*").eq("email", email_verificar).execute()
     
+    # --- CORREÇÃO DO ÍNDICE [0] DA LISTA DO SUPABASE ---
     if not user_query.data or len(user_query.data) == 0:
+        # Se for o primeiro acesso absoluto do e-mail, cria com 3 créditos grátis
         user_insert = supabase.table("usuarios_pagos").insert({"email": email_verificar, "creditos": 3}).execute()
-        user_data = user_insert.data[0] # CORREÇÃO: índice de objeto na lista
+        user_data = user_insert.data[0] # Pega o primeiro item da lista criada
     else:
-        user_data = user_query.data[0] # CORREÇÃO: índice de objeto na lista
+        user_data = user_query.data[0] # Pega o primeiro item da lista encontrada
 
-    if user_data["creditos"] <= 0:
+    # 2. Bloqueia se o saldo for menor ou igual a zero (agora com leitura garantida)
+    if int(user_data["creditos"]) <= 0:
         resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
         return templates.TemplateResponse("index.html", {
             "request": request, "historico": resposta.data,
-            "erro_pagamento": "Seus 3 créditos de teste acabaram. Digite seu e-mail abaixo para adquirir mais créditos.",
+            "erro_pagamento": "Seus créditos acabaram. Realize uma recarga para continuar gerando QR Codes homologados.",
             "email_bloqueado": email_verificar,
             "creditos_atuais": 0
         })
 
-    novos_creditos = user_data["creditos"] - 1
+    # 3. Se tiver créditos, deduz 1 e segue com a geração do QR Code do Banco do Brasil
+    novos_creditos = int(user_data["creditos"]) - 1
     supabase.table("usuarios_pagos").update({"creditos": novos_creditos}).eq("email", email_verificar).execute()
 
+    # Executa a sua lógica estrita homologada que deu certo no BB
     payload_pix = gerar_payload_pix_estrito(chave, nome, cidade, valor)
     qrcode_base64 = gerar_base64_qrcode(payload_pix)
     
-    supabase.table("qrcodes").insert({"chave": chave, "nome": nome, "cidade": cidade, "valor": valor, "payload_pix": payload_pix, "image_url": qrcode_base64}).execute()
+    # Salva o histórico geral de QR Codes gerados
+    supabase.table("qrcodes").insert({
+        "chave": chave, "nome": nome, "cidade": cidade, "valor": valor, 
+        "payload_pix": payload_pix, "image_url": qrcode_base64
+    }).execute()
+    
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
     
     return templates.TemplateResponse("index.html", {
@@ -267,7 +282,7 @@ async def webhook_mercadopago(
                 
     return Response(status_code=status.HTTP_200_OK)
 
-    
+
 # ROTA DE CONSULTA REFORÇADA COM TEXTO PURO (IMPOSSÍVEL DO NAVEGADOR BLOQUEAR)
 @app.get("/checar-creditos", response_class=PlainTextResponse)
 async def checar_creditos(email: str):
