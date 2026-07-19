@@ -164,11 +164,26 @@ async def criar_qrcode(
 
    
 
+# ROTA DE COMPRA DE CRÉDITOS FLEXÍVEL E PROTEGIDA CONTRA ERRO 422
 @app.post("/comprar-creditos", response_class=HTMLResponse)
-async def comprar_creditos(request: Request, email_compra: Annotated[str, Form()]):
-    email_limpo = email_compra.strip().lower()
+async def comprar_creditos(
+    request: Request, 
+    email_compra: Annotated[str | None, Form()] = None,
+    email_cliente: Annotated[str | None, Form()] = None
+):
+    # Captura o e-mail enviado de qualquer um dos formulários da página
+    email_final = email_compra or email_cliente
     
-    # Cria cobrança de R$ 19,90 no Mercado Pago
+    if not email_final:
+        resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
+        return templates.TemplateResponse("index.html", {
+            "request": request, "historico": resposta.data,
+            "erro_pagamento": "Por favor, informe um e-mail válido para realizar a recarga de créditos."
+        })
+        
+    email_limpo = email_final.strip().lower()
+    
+    # Cria a cobrança de R$ 19,90 no Mercado Pago
     payment_data = {
         "transaction_amount": 19.90,
         "description": "Recarga 50 Créditos - QR Pix Pro",
@@ -176,17 +191,26 @@ async def comprar_creditos(request: Request, email_compra: Annotated[str, Form()
         "payer": {"email": email_limpo}
     }
     
-    payment_response = sdk.payment().create(payment_data)
-    payment = payment_response["response"]
-    
-    pix_copia_cola = payment["point_of_interaction"]["transaction_data"]["qr_code"]
-    pix_qr_base64 = payment["point_of_interaction"]["transaction_data"]["qr_code_base64"]
-    
-    resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
-    return templates.TemplateResponse("index.html", {
-        "request": request, "historico": resposta.data,
-        "checkout_pix": pix_copia_cola, "checkout_qr": f"data:image/png;base64,{pix_qr_base64}", "email_solicitado": email_limpo
-    })
+    try:
+        payment_response = sdk.payment().create(payment_data)
+        payment = payment_response["response"]
+        
+        pix_copia_cola = payment["point_of_interaction"]["transaction_data"]["qr_code"]
+        pix_qr_base64 = payment["point_of_interaction"]["transaction_data"]["qr_code_base64"]
+        
+        resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
+        return templates.TemplateResponse("index.html", {
+            "request": request, "historico": resposta.data,
+            "checkout_pix": pix_copia_cola, "checkout_qr": f"data:image/png;base64,{pix_qr_base64}", "email_solicitado": email_limpo
+        })
+    except Exception as e:
+        print(f"Erro ao gerar cobrança no Mercado Pago: {e}")
+        resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(5).execute()
+        return templates.TemplateResponse("index.html", {
+            "request": request, "historico": resposta.data,
+            "erro_pagamento": "Ocorreu um erro de comunicação com o Mercado Pago. Tente novamente mais tarde."
+        })
+        
 
 # WEBHOOK CORRIGIDO PARA LER LISTA DO SUPABASE NO INDEX [0]
 @app.post("/webhook/mercadopago")
