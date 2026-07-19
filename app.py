@@ -10,17 +10,14 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from supabase import create_client, Client
 
-
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-
 
 # Configuração do Supabase via Variáveis de Ambiente
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- SUAS FUNÇÕES DO PIX CORRIGIDAS ---
 def limpar_texto(texto):
     return "".join(
         c for c in unicodedata.normalize('NFD', texto)
@@ -63,7 +60,6 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     return payload + crc_code
 
 def gerar_base64_qrcode(payload_pix: str) -> str:
-    """Gera o QR Code na memória com o payload Pix e converte para String Base64"""
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_M,
@@ -79,11 +75,9 @@ def gerar_base64_qrcode(payload_pix: str) -> str:
     img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
     return f"data:image/png;base64,{img_str}"
 
-
-# --- ROTAS DO SITE ---
-
 @app.get("/", response_class=HTMLResponse)
 async def pagina_inicial(request: Request):
+    # Busca o histórico no Supabase
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(10).execute()
     historico = resposta.data
     return templates.TemplateResponse("index.html", {"request": request, "historico": historico})
@@ -96,17 +90,24 @@ async def criar_qrcode(
     cidade: Annotated[str, Form()],
     valor: Annotated[float, Form()]
 ):
-    # 1. Gera o payload Pix estrito
+    # 1. Gera o payload Pix BR Code
     payload_pix = gerar_payload_pix_estrito(chave, nome, cidade, valor)
     
-    # 2. Gera a imagem convertida para String Base64
+    # 2. Gera o QR Code em Base64
     qrcode_base64 = gerar_base64_qrcode(payload_pix)
     
-    # 3. Salva no Supabase (usamos o payload Pix no campo url)
-    dados_banco = {"url": payload_pix, "image_url": qrcode_base64}
+    # 3. Salva a transação completa no banco do Supabase
+    dados_banco = {
+        "chave": chave,
+        "nome": nome,
+        "cidade": cidade,
+        "valor": valor,
+        "payload_pix": payload_pix,
+        "image_url": qrcode_base64
+    }
     supabase.table("qrcodes").insert(dados_banco).execute()
     
-    # 4. Atualiza o histórico para exibir na página
+    # 4. Atualiza a lista do histórico
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(10).execute()
     historico = resposta.data
     
@@ -115,7 +116,7 @@ async def criar_qrcode(
         {
             "request": request, 
             "qrcode_gerado": qrcode_base64, 
-            "url_original": payload_pix, 
+            "payload_final": payload_pix, 
             "historico": historico
         }
     )
