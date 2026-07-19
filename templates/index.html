@@ -236,29 +236,34 @@
                     <p class="text-indigo-300 text-2xs mt-2">Liberação automática após o pagamento.</p>
                 </div>
 
-                <!-- O SCRIPT JAVASCRIPT FICA EMBUTIDO AQUI, DENTRO DO BLOCO DO CHECKOUT -->
+                <!-- O SCRIPT JAVASCRIPT INTELIGENTE FIQUE EMBUTIDO AQUI -->
                 <script>
-                    const emailSolicitado = "{{ email_solicitado }}";
+                    const emailSolicitado = "{{ email_solicitado or email_bloqueado }}";
+                    // Define o saldo inicial baseado no que o servidor renderizou (0 se bloqueado)
+                    const saldoInicial = parseInt("{{ creditos_atuais or 0 }}", 10);
                     
                     const intervaloChecagem = setInterval(async () => {
                         try {
                             const resposta = await fetch(`/checar-creditos?email=${encodeURIComponent(emailSolicitado)}`);
                             const dados = await resposta.json();
                             
-                            if (dados.creditos > 0) {
-                                clearInterval(intervaloChecagem); // Para o cronômetro
+                            // SE O SALDO ATUAL FOR MAIOR QUE O SALDO INICIAL, O PIX FOI CONFIRMADO!
+                            if (dados.creditos > saldoInicial) {
+                                clearInterval(intervaloChecagem); // Para o relógio de consulta
                                 
-                                const painelLateral = document.querySelector('.bg-gradient-to-br');
-                                if (painelLateral) {
-                                    painelLateral.innerHTML = `
+                                // Localiza o painel do Mercado Pago pelo ID exclusivo
+                                const painelMERCADO = document.getElementById('painel-mercado-pago');
+                                if (painelMERCADO) {
+                                    // Remove as cores escuras de cobrança e aplica o estilo verde de sucesso
+                                    painelMERCADO.className = "bg-green-50 p-6 rounded-2xl border border-green-200 text-center text-gray-800 shadow-sm";
+                                    painelMERCADO.innerHTML = `
                                         <div class="p-2 text-center">
                                             <div class="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md" style="font-size: 1.5rem; font-weight: bold; line-height: 48px;">
                                                 ✓
                                             </div>
-                                            <h3 class="font-black text-xl text-green-400 mb-1">Crédito Liberado!</h3>
-                                            <p class="text-indigo-200 text-xs mb-6">Seus 50 créditos foram adicionados ao e-mail <strong>${emailSolicitado}</strong> com sucesso.</p>
-                                            <!-- Botão corrigido para forçar a atualização da página inteira com JavaScript puro -->
-                                            <button onclick="recarregarPagina()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
+                                            <h3 class="font-black text-xl text-green-600 mb-1">Crédito Liberado!</h3>
+                                            <p class="text-gray-500 text-xs mb-6">Seus 50 novos créditos foram validados e adicionados com sucesso.</p>
+                                            <button onclick="window.location.reload();" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
                                                 Começar a Usar
                                             </button>
                                         </div>
@@ -268,12 +273,7 @@
                         } catch (erro) {
                             console.error("Aguardando confirmação do pagamento no Mercado Pago...", erro);
                         }
-                    }, 4000);
-
-                    // Função auxiliar para garantir o refresh completo limpando o cache da página
-                    function recarregarPagina() {
-                        window.location.reload();
-                    }
+                    }, 4000); // Roda a cada 4 segundos
                 </script>
 
                 {% elif qrcode_gerado %}
