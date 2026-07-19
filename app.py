@@ -23,7 +23,7 @@ def limpar_texto(texto):
     return "".join(
         c for c in unicodedata.normalize('NFD', texto)
         if unicodedata.category(c) != 'Mn'
-    ).upper().replace('$', '').replace('@', '@')
+    ).upper().replace('$', '').replace('@', '@') # mantém o @ se for e-mail
 
 def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     nome = limpar_texto(nome)[:25] # Limite de caracteres padrão EMV
@@ -42,11 +42,14 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     merchant_category_code = "52040000"
     transaction_currency = "5303986"
     
-    # Formata valor com duas casas decimais e mede o tamanho dinamicamente se for maior que zero
-    transaction_amount = ""
+    # Formata valor com duas casas decimais e mede o tamanho dinamicamente
+    #valor_str = f"{valor:.2f}"
+    #transaction_amount = f"54{len(valor_str):02d}{valor_str}"
+
+    # Procure a parte que adiciona o valor (ID 54) e altere para:
     if valor > 0:
         valor_str = f"{valor:.2f}"
-        transaction_amount = f"54{len(valor_str):02d}{valor_str}"
+        payload += f"54{len(valor_str):02}{valor_str}"
     
     country_code = "5802BR"
     
@@ -57,13 +60,12 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     additional_data = f"05{len(txid):02d}{txid}"
     additional_data_template = f"62{len(additional_data):02d}{additional_data}"
     
-    # Concatenação da payload base na ordem padrão exigida pelo Banco Central
+    # Concatenação da payload base
     payload = (
         payload_format_indicator +
         merchant_account_len +
         merchant_category_code +
         transaction_currency +
-        transaction_amount +  # Injetado corretamente de forma dinâmica
         country_code +
         merchant_name +
         merchant_city +
@@ -77,23 +79,7 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
     
     return payload + crc_code
 
-def gerar_base64_qrcode(payload_pix: str) -> str:
-    """Gera a imagem na memória com o nível médio de correção solicitado"""
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(payload_pix)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
     
-    buffer = io.BytesIO()
-    img.save(buffer, format="PNG")
-    img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{img_str}"
-
 @app.get("/", response_class=HTMLResponse)
 async def pagina_inicial(request: Request):
     resposta = supabase.table("qrcodes").select("*").order("created_at", desc=True).limit(10).execute()
