@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR Pix Pro - Sistema Inteligente</title>
     
-    <!-- CSS EMBUTIDO: Burlar 100% dos bloqueadores de privacidade do navegador -->
+    <!-- CSS EMBUTIDO COMPILADO E EXPANDIDO (À prova de bloqueios de privacidade) -->
     <style>
-        /* Classes essenciais do Tailwind pré-compiladas */
         .bg-gray-50 { background-color: #f9fafb; }
         .bg-white { background-color: #ffffff; }
         .bg-indigo-50 { background-color: #e0e7ff; }
@@ -39,8 +38,10 @@
         .text-green-600 { color: #16a34a; }
         .text-green-400 { color: #4ade80; }
         .text-white { color: #ffffff; }
+        .text-red-500 { color: #ef4444; }
         
         .font-sans { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .font-medium { font-weight: 500; }
         .font-bold { font-weight: 700; }
         .font-extrabold { font-weight: 800; }
         .font-black { font-weight: 900; }
@@ -68,8 +69,6 @@
         .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
         .py-1.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
         .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-        .px-2.5 { padding-left: 0.625rem; padding-right: 0.625rem; }
         .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
         .pt-12 { padding-top: 3rem; }
         
@@ -81,7 +80,6 @@
         .mb-3 { margin-bottom: 0.75rem; }
         .mb-4 { margin-bottom: 1rem; }
         .mb-6 { margin-bottom: 1.5rem; }
-        .mb-8 { margin-bottom: 2rem; }
         .mb-10 { margin-bottom: 2.5rem; }
         .mx-auto { margin-left: auto; margin-right: auto; }
         
@@ -99,6 +97,7 @@
         .border-indigo-100 { border-color: #e0e7ff; }
         .border-indigo-200 { border-color: #c7d2fe; }
         .border-indigo-800 { border-color: #3730a3; }
+        .border-green-200 { border-color: #bbf7d0; }
         .border-red-500 { border-color: #ef4444; }
         
         .grid { display: grid; }
@@ -121,9 +120,12 @@
         .text-center { text-align: center; }
         .text-left { text-align: left; }
         .text-sm { font-size: 0.875rem; }
+        .text-base { font-size: 1rem; }
+        .text-lg { font-size: 1.125rem; }
         .text-xs { font-size: 0.75rem; }
         .text-xl { font-size: 1.25rem; }
         .text-2xl { font-size: 1.5rem; }
+        .text-3xl { font-size: 1.875rem; }
         .text-2xs { font-size: 0.65rem; }
         .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .whitespace-nowrap { white-space: nowrap; }
@@ -132,8 +134,33 @@
         input:focus { border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2); }
         button { cursor: pointer; border: none; transition: all 0.2s; }
         button:hover { opacity: 0.9; }
+
+        /* Estilo do Pop-up (Toast Notification) */
+        #custom-popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #22c55e;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 9999;
+            font-weight: bold;
+            font-family: sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: transform 0.4s ease, opacity 0.4s ease;
+            pointer-events: none;
+        }
+        #custom-popup.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
         
-        /* Media Queries para Responsividade (Celular / PC) */
         @media (min-width: 640px) {
             .sm\Spectrum-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .sm\Spectrum-flex-row { flex-direction: row; }
@@ -146,6 +173,12 @@
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
+
+    <!-- Estrutura Oculta do Pop-up Customizado -->
+    <div id="custom-popup">
+        <span style="font-size: 1.2rem;">✓</span>
+        <span id="custom-popup-text">Notificação</span>
+    </div>
 
     <nav class="bg-white shadow-sm border-gray-100 flex justify-between items-center px-4 py-3" style="border-bottom-width:1px;">
         <div class="flex items-center" style="gap:0.5rem;">
@@ -179,46 +212,49 @@
                 </div>
                 
                 <form method="post" class="flex" style="flex-direction:column; gap:1rem;">
+                    <!-- Campo de E-mail Padronizado na Altura py-2.5 -->
                     <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                        <label class="block text-xs font-bold text-indigo-700 mb-1">Seu E-mail de Usuário (Controle de Créditos)</label>
-                        <input type="email" name="email_cliente" value="{{ email_usado or email_bloqueado or '' }}" placeholder="Ex: seuemail@gmail.com" required
-                            class="w-full px-4 py-2 bg-white border-gray-200 rounded-xl text-sm">
+                    <!-- Bloco do E-mail de Usuário -->
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <label class="block text-xs font-bold text-indigo-700 mb-1">Seu E-mail de Usuário (Controle de Créditos) <span class="text-red-500">*</span></label>
+                        <input type="email" name="email_cliente" value="{{ email_usado or email_bloqueado or '' }}" placeholder="Ex: seue-mail@gmail.com" required class="w-full px-4 py-2.5 bg-white border-gray-200 rounded-xl text-sm">
                         <p class="text-gray-400 text-xs mt-1">E-mails novos ganham <strong>3 gerações gratuitas</strong> automaticamente.</p>
                     </div>
 
+                    <!-- Campo da Chave Pix -->
                     <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1">Chave Pix</label>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Chave Pix <span class="text-red-500">*</span></label>
                         <input type="text" name="chave" placeholder="CPF, Celular, E-mail ou EVP" required class="w-full px-4 py-2.5 bg-gray-50 border-gray-200 rounded-xl text-sm">
                     </div>
 
-                    <!-- Campo: Nome do Beneficiário -->
+                    <!-- Campo do Nome do Beneficiário -->
                     <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1">Nome do Beneficiário</label>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Nome do Beneficiário <span class="text-red-500">*</span></label>
                         <input type="text" name="nome" placeholder="Cleverson K Nakazawa" maxlength="25" required class="w-full px-4 py-2.5 bg-gray-50 border-gray-200 rounded-xl text-sm">
                     </div>
 
-                    <!-- Campos: Cidade e Valor -->
+                    <!-- Campos de Cidade e Valor -->
                     <div class="grid sm:Spectrum-grid gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1">Cidade</label>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">Cidade <span class="text-red-500">*</span></label>
                             <input type="text" name="cidade" placeholder="CURITIBA" maxlength="15" required class="w-full px-4 py-2.5 bg-gray-50 border-gray-200 rounded-xl text-sm">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1">Valor (R$)</label>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">Valor (R$) (opcional)</label>
                             <input type="number" name="valor" step="0.01" min="0.00" value="0.00" required class="w-full px-4 py-2.5 bg-gray-50 border-gray-200 rounded-xl text-sm">
                         </div>
                     </div>
 
-                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md text-sm">
-                        Gerar QR Code Compartível
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md text-sm transition">
+                        Gerar QR Code Compatível
                     </button>
                 </form>
             </div>
 
-               <!-- Painel de Exibição Dinâmica (QR Code do Cliente ou Checkout do Mercado Pago) -->
+            <!-- Painel Dinâmico Lateral -->
             <div>
                 {% if checkout_pix %}
-                <div class="bg-gradient-to-br from-indigo-900 to-purple-950 p-6 rounded-2xl shadow-xl text-white text-center">
+                <div id="painel-mercado-pago" class="bg-gradient-to-br from-indigo-900 to-purple-950 p-6 rounded-2xl shadow-xl text-white text-center">
                     <h3 class="font-black text-xl mb-1">Recarregar Créditos</h3>
                     <p class="text-indigo-200 text-xs mb-4">Adquira 50 créditos por apenas <strong>R$ 19,90</strong></p>
                     
@@ -227,40 +263,48 @@
                     </div>
 
                     <label class="block text-left text-xs font-bold text-indigo-300 mb-1">Código Copia e Cola Mercado Pago:</label>
-                    <input type="text" id="mp_token" value="{{ checkout_pix }}" readonly class="w-full px-3 py-1.5 bg-indigo-950/50 border border-indigo-800 rounded-lg text-xs font-mono text-indigo-200 mb-3 text-center truncate">
-                    
-                    <button onclick="navigator.clipboard.writeText(document.getElementById('mp_token').value); alert('Pix Mercado Pago copiado!')"
-                        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md">
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('mp_token').value); mostrarPopup('Pix Mercado Pago copiado!')"
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
                         Copiar Pix de Recarga
                     </button>
                     <p class="text-indigo-300 text-2xs mt-2">Liberação automática após o pagamento.</p>
                 </div>
 
-                <!-- O SCRIPT JAVASCRIPT COM REDIRECIONAMENTO DE SEGURANÇA -->
                 <script>
                     const emailSolicitado = "{{ email_solicitado or email_bloqueado }}";
-                    const saldoInicial = parseInt("{{ creditos_atuais or 0 }}", 10);
                     
                     const intervaloChecagem = setInterval(async () => {
                         try {
                             const resposta = await fetch(`/checar-creditos?email=${encodeURIComponent(emailSolicitado)}`);
-                            const textoSaldo = await resposta.text(); 
+                            const textoSaldo = await resposta.text();
                             const saldoAtual = parseInt(textoSaldo, 10);
                             
-                            // SE O SALDO SUBIU NO SUPABASE, LIMPA A REQUISIÇÃO RETORNANDO À RAIZ
-                            if (!isNaN(saldoAtual) && saldoAtual > saldoInicial) {
-                                clearInterval(intervaloChecagem); // Para as consultas
+                            if (!isNaN(saldoAtual) && saldoAtual > 0) {
+                                clearInterval(intervaloChecagem);
                                 
-                                alert("Pagamento Confirmado! Seus créditos já estão disponíveis.");
+                                mostrarPopup("Crédito Liberado! Seus créditos já estão disponíveis.");
                                 
-                                // FORÇA O NAVEGADOR A IR PARA A URL LIMPA DO SEU SITE
-                                // Isso destrói a variável checkout_pix da tela e libera o formulário!
-                                window.location.href = "/"; 
+                                const painelMERCADO = document.getElementById('painel-mercado-pago');
+                                if (painelMERCADO) {
+                                    painelMERCADO.className = "bg-green-50 p-6 rounded-2xl border border-green-200 text-center text-gray-800 shadow-sm";
+                                    painelMERCADO.innerHTML = `
+                                        <div class="p-2 text-center">
+                                            <div class="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md" style="font-size: 1.5rem; font-weight: bold; line-height: 48px;">
+                                                ✓
+                                            </div>
+                                            <h3 class="font-black text-xl text-green-600 mb-1">Crédito Liberado!</h3>
+                                            <p class="text-gray-500 text-xs mb-6">Seus 50 novos créditos foram validados e adicionados com sucesso.</p>
+                                            <button onclick="window.location.reload();" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
+                                                Começar a Usar
+                                            </button>
+                                        </div>
+                                    `;
+                                }
                             }
                         } catch (erro) {
-                            console.error("Aguardando confirmação do pagamento no Mercado Pago...", erro);
+                            console.error("Aguardando confirmação...", erro);
                         }
-                    }, 4000); // Executa a cada 4 segundos
+                    }, 4000);
                 </script>
 
                 {% elif qrcode_gerado %}
@@ -270,36 +314,43 @@
                         <img src="{{ qrcode_gerado }}" alt="QR Code Pix" class="w-44 h-44 border p-2 bg-white rounded-lg border-gray-200">
                     </div>
                     <input type="text" id="copia_cola" value="{{ payload_final }}" readonly class="w-full px-3 py-1.5 bg-gray-50 border rounded-lg text-xs font-mono text-gray-500 mb-3 text-center truncate border-gray-200">
-                    <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); alert('Código copiado!')" class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-2 rounded-xl shadow-md">Copiar Código</button>
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); mostrarPopup('Código copiado!')" class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-2 rounded-xl shadow-md transition">Copiar Código</button>
                 </div>
 
                 {% else %}
                 <div class="bg-gray-100 p-6 rounded-2xl border border-gray-200 text-center text-gray-400 py-20" style="border-style:dashed; border-width:2px;">
-                    <p class="text-xs">Preencha os dados e e-mail para processar a cobrança.</p>
+                    <p class="text-sm font-medium text-gray-500">Preencher os campos obrigatórios em (*) para gerar o QRCode.</p>
                 </div>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Seção de Recursos e Benefícios -->
+        <!-- Seção Informativa Inferior -->
         <div class="mt-16 text-center border-t border-gray-200 pt-12">
-            <h2 class="text-xl font-extrabold text-gray-900 mb-6">Como funciona o nosso sistema?</h2>
+            <h2 class="text-xl font-extrabold text-gray-900 mb-8">Como funciona o nosso sistema?</h2>
             
             <div class="grid sm:Spectrum-grid-3 gap-6 text-left max-w-4xl mx-auto mb-10">
-                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mb-3">1</div>
-                    <h4 class="font-bold text-sm mb-1 text-gray-800">3 Testes Grátis</h4>
-                    <p class="text-gray-400 text-xs">Insira qualquer e-mail para validar o funcionamento estrito em aplicativos rígidos como o Banco do Brasil.</p>
+                <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-start" style="gap: 1rem;">
+                    <div class="text-indigo-600 font-black text-2xl whitespace-nowrap" style="line-height: 1.2;">1° )</div>
+                    <div>
+                        <h4 class="font-extrabold text-base mb-1 text-gray-900">3 Testes Grátis</h4>
+                        <p class="text-gray-500 text-sm" style="line-height: 1.5;">Insira qualquer e-mail para validar o funcionamento estrito em aplicativos rígidos como o Banco do Brasil.</p>
+                    </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mb-3">2</div>
-                    <h4 class="font-bold text-sm mb-1 text-gray-800">Recargas Rápidas</h4>
-                    <p class="text-gray-400 text-xs">Sempre que precisar de mais envios, faça um Pix no valor de R$ 19,90 direto no painel lateral do site.</p>
+                <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-start" style="gap: 1rem;">
+                    <div class="text-indigo-600 font-black text-2xl whitespace-nowrap" style="line-height: 1.2;">2° )</div>
+                    <div>
+                        <h4 class="font-extrabold text-base mb-1 text-gray-900">Recargas Rápidas</h4>
+                        <p class="text-gray-500 text-sm" style="line-height: 1.5;">Sempre que precisar de mais envios, faça um Pix no valor de R$ 19,90 direto no painel lateral do site.</p>
+                    </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mb-3">3</div>
-                    <h4 class="font-bold text-sm mb-1 text-gray-800">Saldo Cumulativo</h4>
-                    <p class="text-gray-400 text-xs">Seus créditos adquiridos não expiram e ficam salvos sob o e-mail informado na plataforma.</p>
+                <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-start" style="gap: 1rem;">
+                    <div class="text-indigo-600 font-black text-2xl whitespace-nowrap" style="line-height: 1.2;">3° )</div>
+                    <div>
+                        <h4 class="font-extrabold text-base mb-1 text-gray-900">Saldo Cumulativo</h4>
+
+                          <p class="text-gray-500 text-sm" style="line-height: 1.5;">Seus créditos adquiridos não expiram e ficam salvos sob o e-mail informado na plataforma.</p>
+                    </div>
                 </div>
             </div>
             
@@ -309,9 +360,8 @@
                 <p class="text-indigo-800 text-xs mb-3">Insira seu e-mail abaixo para gerar o Pix de recarga de 50 créditos.</p>
                 
                 <form action="/comprar-creditos" method="post" class="flex sm:Spectrum-flex-row" style="flex-direction:column; gap:0.5rem;">
-                    <!-- O name DEVE ser email_compra -->
                     <input type="email" name="email_compra" placeholder="Seu e-mail cadastrado" required class="flex-1 px-4 py-2.5 bg-white border border-indigo-200 rounded-xl text-sm">
-                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md whitespace-nowrap">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl text-sm shadow-md whitespace-nowrap transition">
                         Recarregar Saldo
                     </button>
                 </form>
@@ -323,3 +373,20 @@
     <footer class="bg-white border-t border-gray-100 mt-24 py-6 text-center text-xs text-gray-400">
         <p>&copy; 2026 QR Pix Pro. Todos os direitos reservados. Homologado conforme Resolução do BC.</p>
     </footer>
+
+    <!-- Script de Controle do Pop-up Customizado -->
+    <script>
+        function mostrarPopup(mensagem) {
+            const popup = document.getElementById('custom-popup');
+            const popupText = document.getElementById('custom-popup-text');
+            
+            if (popup && popupText) {
+                popupText.innerText = mensagem;
+                popup.classList.add('show');
+                
+                setTimeout(() => {
+                    popup.classList.remove('show');
+                }, 3500);
+            }
+        }
+    </script>
