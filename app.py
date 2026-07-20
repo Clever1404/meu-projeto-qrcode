@@ -344,48 +344,41 @@ async def checar_creditos(email: str):
 async def pagina_contato(request: Request):
     return templates.TemplateResponse("contato.html", {"request": request, "sucesso": False})
 
-@app.post("/contato", response_class=HTMLResponse)
-async def enviar_contato(
-    request: Request, 
-    nome: str = Form(...), 
-    email: str = Form(...), 
-    mensagem: str = Form(...)
-):
-    # Validação manual simples direto no programa
-    erro = None
-    if len(nome.strip()) < 3:
-        erro = "O nome precisa ter pelo menos 3 caracteres."
-    elif "@" not in email or "." not in email:
-        erro = "Por favor, insira um e-mail válido."
-    elif len(mensagem.strip()) < 10:
-        erro = "Sua mensagem deve conter pelo menos 10 caracteres."
-
-    # Se houver erro de preenchimento, renderiza a tela de erro customizada inline
-    if erro:
-        html_erro = f"""
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Erro no Preenchimento</title>
-            <script src="https://tailwindcss.com"></script>
-        </head>
-        <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-            <div class="max-w-md w-full bg-white p-6 rounded-xl shadow-lg border border-red-200 text-center">
-                <div class="text-red-500 text-5xl mb-4">⚠️</div>
-                <h1 class="text-xl font-bold text-gray-800 mb-2">Ops! Algo deu errado</h1>
-                <p class="text-gray-600 mb-6 font-medium">{erro}</p>
-                
-                <!-- Botão de Voltar Nativo do Navegador (Mantém os dados que o usuário já digitou) -->
-                <button onclick="window.history.back()" class="inline-block bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-700 transition shadow-sm w-full">
-                    Voltar e Corrigir
-                </button>
-            </div>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=html_erro, status_code=400)
+@app.get("/", response_class=HTMLResponse)
+async def pagina_principal():
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Meu App</title>
+        <!-- O CSS fica direto aqui dentro, sem precisar de arquivos -->
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f4f4f9;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+            }
+            .container {
+                background: white;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Formulário de Contato</h1>
+            <!-- Seu HTML aqui -->
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
     # --- Se passar na validação, continua o fluxo normal ---
     
