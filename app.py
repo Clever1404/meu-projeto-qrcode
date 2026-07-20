@@ -16,7 +16,9 @@ import resend
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-
+# Obtém o caminho absoluto correto da pasta de templates
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 # Configurações do Mercado Pago e Supabase via Variáveis de Ambiente
 MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN")
