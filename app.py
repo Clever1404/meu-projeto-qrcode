@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse
 from supabase import create_client, Client
 from fastapi.staticfiles import StaticFiles # <-- ADICIONE ESTA LINHA
 from fastapi.responses import PlainTextResponse
+import resend 
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -63,7 +64,7 @@ async def enviar_contato(
         # Mesmo se o e-mail falhar, o código continua para não travar a experiência do usuário
     
     return templates.TemplateResponse("contato.html", {"request": request, "sucesso": True})
-    
+
 
 # --- SUA FUNÇÃO DE LIMPEZA IDENTICA ---
 def limpar_texto(texto):
