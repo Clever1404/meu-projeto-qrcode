@@ -251,9 +251,10 @@
                 </form>
             </div>
 
-            <!-- Painel Dinâmico Lateral -->
+            <!-- Painel de Exibição Dinâmica (QR Code do Cliente ou Checkout do Mercado Pago) -->
             <div>
                 {% if checkout_pix %}
+                <!-- Bloco de Checkout do Mercado Pago -->
                 <div id="painel-mercado-pago" class="bg-gradient-to-br from-indigo-900 to-purple-950 p-6 rounded-2xl shadow-xl text-white text-center">
                     <h3 class="font-black text-xl mb-1">Recarregar Créditos</h3>
                     <p class="text-indigo-200 text-xs mb-4">Adquira 50 créditos por apenas <strong>R$ 19,90</strong></p>
@@ -272,19 +273,19 @@
                     <p class="text-indigo-300 text-2xs mt-2">Liberação automática após o pagamento.</p>
                 </div>
 
+                <!-- O SCRIPT JAVASCRIPT FICA EMBUTIDO AQUI, DENTRO DO BLOCO DO CHECKOUT -->
                 <script>
                     const emailSolicitado = "{{ email_solicitado or email_bloqueado }}";
+                    const saldoInicial = parseInt("{{ creditos_atuais or 0 }}", 10);
                     
-                    // Guarda a referência do intervalo globalmente
                     window.intervaloChecagem = setInterval(async () => {
                         try {
                             const resposta = await fetch(`/checar-creditos?email=${encodeURIComponent(emailSolicitado)}`);
                             const textoSaldo = await resposta.text();
                             const saldoAtual = parseInt(textoSaldo, 10);
                             
-                            if (!isNaN(saldoAtual) && saldoAtual > 0) {
-                                // 1. Para o relógio imediatamente para evitar que o loop rode uma segunda vez
-                                clearInterval(window.intervaloChecagem);
+                            if (!isNaN(saldoAtual) && saldoAtual > saldoInicial) {
+                                clearInterval(window.intervaloChecagem); // Para o relógio imediatamente
                                 
                                 mostrarPopup("Crédito Liberado! Seus créditos já estão disponíveis.");
                                 
@@ -298,8 +299,7 @@
                                             </div>
                                             <h3 class="font-black text-xl text-green-600 mb-1">Crédito Liberado!</h3>
                                             <p class="text-gray-500 text-xs mb-6">Seus 50 novos créditos foram validados e adicionados com sucesso.</p>
-                                            <!-- CORREÇÃO: Chama a função que desliga tudo e limpa a URL -->
-                                            <button onclick="finalizarRecarga()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm shadow-md transition">
+                                            <button onclick="finalizarRecarga()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
                                                 Começar a Usar
                                             </button>
                                         </div>
@@ -311,7 +311,6 @@
                         }
                     }, 4000);
 
-                    // FUNÇÃO NOVA: Destrói qualquer processo preso e força a raiz limpa do site
                     function finalizarRecarga() {
                         clearInterval(window.intervaloChecagem);
                         window.location.href = "/";
@@ -319,29 +318,33 @@
                 </script>
 
                 {% elif qrcode_gerado %}
+                <!-- Bloco do QR Code gerado pelo cliente com botão de download -->
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
                     <span class="text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full">QR Code Ativo</span>
-                    
                     <div class="my-4 flex justify-center">
                         <img src="{{ qrcode_gerado }}" alt="QR Code Pix" class="w-44 h-44 border p-2 bg-white rounded-lg border-gray-200">
                     </div>
-                    
                     <input type="text" id="copia_cola" value="{{ payload_final }}" readonly class="w-full px-3 py-1.5 bg-gray-50 border rounded-lg text-xs font-mono text-gray-500 mb-3 text-center truncate border-gray-200">
                     
-                    <!-- Bloco de Botões Alinhados e Padronizados -->
                     <div class="flex" style="flex-direction: column; gap: 0.5rem;">
-                        <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); mostrarPopup('Código copiado!')" 
-                            class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-2.5 rounded-xl shadow-md transition">
+                        <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); mostrarPopup('Código copiado!')" class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-2.5 rounded-xl shadow-md transition">
                             Copiar Código
                         </button>
-                        
-                        <!-- NOVO: Botão de Download de Imagem Padronizado -->
-                        <a href="{{ qrcode_gerado }}" download="qrcode_pix.png" style="text-decoration: none;"
-                            class="block w-full bg-gray-600 hover:bg-gray-700 text-white text-sm font-bold py-2.5 rounded-xl shadow-md transition text-center">
+                        <a href="{{ qrcode_gerado }}" download="qrcode_pix.png" style="text-decoration: none;" class="block w-full bg-gray-600 hover:bg-gray-700 text-white text-sm font-bold py-2.5 rounded-xl shadow-md transition text-center">
                             Baixar Imagem QR Code
                         </a>
                     </div>
                 </div>
+
+                {% else %}
+                <!-- Mensagem Padrão de Formulário Vazio -->
+                <div class="bg-gray-100 p-6 rounded-2xl border border-gray-200 text-center text-gray-400 py-20" style="border-style:dashed; border-width:2px;">
+                    <p class="text-sm font-medium text-gray-500">Preencher os campos obrigatórios em (*) para gerar o QRCode.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
 
         <!-- Seção Informativa Inferior (Fontes aumentadas e numeração preta alinhada à esquerda) -->
         <div class="mt-16 text-center border-t border-gray-200 pt-12">
