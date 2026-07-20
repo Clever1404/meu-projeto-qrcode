@@ -257,7 +257,7 @@
                 <!-- Bloco de Checkout do Mercado Pago -->
                 <div id="painel-mercado-pago" class="bg-gradient-to-br from-indigo-900 to-purple-950 p-6 rounded-2xl shadow-xl text-white text-center">
                     <h3 class="font-black text-xl mb-1">Recarregar Créditos</h3>
-                    <p class="text-indigo-200 text-xs mb-4">Adquira 50 créditos por apenas <strong>R$ 19,90</strong></p>
+                    <p class="text-indigo-200 text-xs mb-4">Adquira 20 créditos por apenas <strong>R$ 19,90</strong></p>
                     
                     <div class="bg-white p-3 rounded-xl inline-block mb-4 shadow-sm">
                         <img src="{{ checkout_qr }}" alt="Pague com Pix" class="w-40 h-40">
@@ -267,7 +267,7 @@
                     <input type="text" id="mp_token" value="{{ checkout_pix }}" readonly class="w-full px-3 py-1.5 bg-indigo-950/50 border border-indigo-800 rounded-lg text-xs font-mono text-indigo-200 mb-3 text-center truncate">
                     
                     <button onclick="navigator.clipboard.writeText(document.getElementById('mp_token').value); mostrarPopup('Pix Mercado Pago copiado!')"
-                        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl text-sm shadow-md transition">
                         Copiar Pix de Recarga
                     </button>
                     <p class="text-indigo-300 text-2xs mt-2">Liberação automática após o pagamento.</p>
@@ -298,7 +298,7 @@
                                                 ✓
                                             </div>
                                             <h3 class="font-black text-xl text-green-600 mb-1">Crédito Liberado!</h3>
-                                            <p class="text-gray-500 text-xs mb-6">Seus 50 novos créditos foram validados e adicionados com sucesso.</p>
+                                            <p class="text-gray-500 text-xs mb-6">Seus 20 novos créditos foram validados e adicionados com sucesso.</p>
                                             <button onclick="finalizarRecarga()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm shadow-md transition">
                                                 Começar a Usar
                                             </button>
@@ -377,7 +377,7 @@
             <!-- Formulário Adicional de Recarga Padronizado e Alinhado na Altura -->
             <div class="bg-indigo-50 rounded-2xl p-6 max-w-lg mx-auto text-left border border-indigo-100 shadow-sm">
                 <h4 class="font-extrabold text-base text-indigo-950 mb-1">Precisa recarregar seu saldo agora?</h4>
-                <p class="text-indigo-800 text-xs mb-3">Insira seu e-mail abaixo para gerar o Pix de recarga de 50 créditos.</p>
+                <p class="text-indigo-800 text-xs mb-3">Insira seu e-mail abaixo para gerar o Pix de recarga de 20 créditos.</p>
                 
                 <form action="/comprar-creditos" method="post" class="flex sm:Spectrum-flex-row" style="flex-direction:column; gap:0.5rem;">
                     <input type="email" name="email_compra" placeholder="Seu e-mail cadastrado" required class="flex-1 px-4 py-3 bg-white border border-indigo-200 rounded-xl text-sm box-border">
