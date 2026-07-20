@@ -25,6 +25,46 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Configura a API Key do Resend obtida do ambiente
+resend.api_key = os.getenv("RESEND_API_KEY")
+
+
+@app.post("/contato", response_class=HTMLResponse)
+async def enviar_contato(
+    request: Request, 
+    nome: str = Form(...), 
+    email: str = Form(...), 
+    mensagem: str = Form(...)
+):
+    # 1. Salva a mensagem no Supabase
+    supabase.table("contatos").insert({
+        "nome": nome,
+        "email": email,
+        "mensagem": mensagem
+    }).execute()
+    
+    # 2. Envia a notificação por e-mail via Resend
+    try:
+        params = {
+            "from": "onboarding@resend.dev",  # Use este se for conta de testes, ou seu email verificado (ex: contato@seu-dominio.com)
+            "to": ["seu-email@gmail.com"],     # Substitua pelo e-mail onde você deseja RECEBER o aviso
+            "subject": f"Novo contato do site: {nome}",
+            "html": f"""
+                <h3>Nova Mensagem Recebida no Site</h3>
+                <p><strong>Nome:</strong> {nome}</p>
+                <p><strong>E-mail:</strong> {email}</p>
+                <p><strong>Mensagem:</strong></p>
+                <p style="background: #f4f4f4; padding: 10px; border-left: 4px solid #0070f3;">{mensagem}</p>
+            """
+        }
+        resend.Emails.send(params)
+    except Exception as e:
+        print(f"Erro ao enviar e-mail: {e}")
+        # Mesmo se o e-mail falhar, o código continua para não travar a experiência do usuário
+    
+    return templates.TemplateResponse("contato.html", {"request": request, "sucesso": True})
+    
+
 # --- SUA FUNÇÃO DE LIMPEZA IDENTICA ---
 def limpar_texto(texto):
     # Remove acentos, caracteres especiais e força letras maiúsculas
@@ -295,3 +335,25 @@ async def checar_creditos(email: str):
         # Retorna apenas o número puro em formato de texto (Ex: "50")
         return str(user_query.data[0]["creditos"])
     return "0"
+
+
+@app.get("/contato", response_class=HTMLResponse)
+async def pagina_contato(request: Request):
+    return templates.TemplateResponse("contato.html", {"request": request, "sucesso": False})
+
+@app.post("/contato", response_class=HTMLResponse)
+async def enviar_contato(
+    request: Request, 
+    nome: str = Form(...), 
+    email: str = Form(...), 
+    mensagem: str = Form(...)
+):
+    # Salva a mensagem recebida diretamente na nova tabela do Supabase
+    supabase.table("contatos").insert({
+        "nome": nome,
+        "email": email,
+        "mensagem": mensagem
+    }).execute()
+    
+    # Retorna o mesmo template, mas avisa o HTML para exibir a mensagem de sucesso
+    return templates.TemplateResponse("contato.html", {"request": request, "sucesso": True})
