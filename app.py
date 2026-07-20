@@ -393,7 +393,7 @@ async def pagina_principal():
     try:
         params = {
             "from": "onboarding@resend.dev",
-            "to": ["seu-email@gmail.com"],  # Modifique para o seu e-mail de destino
+            "to": ["lucychatiaonlinel@gmail.com"],  # Modifique para o seu e-mail de destino
             "subject": f"Novo contato do site: {nome}",
             "html": f"<h3>Novo contato</h3><p><b>Nome:</b> {nome}</p><p><b>E-mail:</b> {email}</p><p><b>Mensagem:</b> {mensagem}</p>"
         }
