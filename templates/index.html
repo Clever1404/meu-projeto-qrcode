@@ -299,7 +299,7 @@
                                             </div>
                                             <h3 class="font-black text-xl text-green-600 mb-1">Crédito Liberado!</h3>
                                             <p class="text-gray-500 text-xs mb-6">Seus 50 novos créditos foram validados e adicionados com sucesso.</p>
-                                            <button onclick="finalizarRecarga()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
+                                            <button onclick="finalizarRecarga()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm shadow-md transition">
                                                 Começar a Usar
                                             </button>
                                         </div>
@@ -327,10 +327,10 @@
                     <input type="text" id="copia_cola" value="{{ payload_final }}" readonly class="w-full px-3 py-1.5 bg-gray-50 border rounded-lg text-xs font-mono text-gray-500 mb-3 text-center truncate border-gray-200">
                     
                     <div class="flex" style="flex-direction: column; gap: 0.5rem;">
-                        <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); mostrarPopup('Código copiado!')" class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-2.5 rounded-xl shadow-md transition">
+                        <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); mostrarPopup('Código copiado!')" class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-3 rounded-xl shadow-md transition">
                             Copiar Código
                         </button>
-                        <a href="{{ qrcode_gerado }}" download="qrcode_pix.png" style="text-decoration: none;" class="block w-full bg-gray-600 hover:bg-gray-700 text-white text-sm font-bold py-2.5 rounded-xl shadow-md transition text-center">
+                        <a href="{{ qrcode_gerado }}" download="qrcode_pix.png" style="text-decoration: none;" class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-3 rounded-xl shadow-md transition text-center">
                             Baixar Imagem QR Code
                         </a>
                     </div>
