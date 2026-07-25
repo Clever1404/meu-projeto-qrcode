@@ -30,8 +30,6 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Configura a API Key do Resend obtida do ambiente
-resend.api_key = os.getenv("RESEND_API_KEY")
 
 # Busca as credenciais das variáveis de ambiente da Render
 EMAIL_USER = os.environ.get("EMAIL_USER")
