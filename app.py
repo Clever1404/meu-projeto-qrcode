@@ -12,7 +12,9 @@ from fastapi.responses import HTMLResponse
 from supabase import create_client, Client
 from fastapi.staticfiles import StaticFiles # <-- ADICIONE ESTA LINHA
 from fastapi.responses import PlainTextResponse
-import resend 
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -30,6 +32,11 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Configura a API Key do Resend obtida do ambiente
 resend.api_key = os.getenv("RESEND_API_KEY")
+
+# Busca as credenciais das variáveis de ambiente da Render
+EMAIL_USER = os.environ.get("EMAIL_USER")
+EMAIL_PASS = os.environ.get("EMAIL_PASS")
+EMAIL_RECEIVER = os.environ.get("EMAIL_RECEIVER")
 
 
 @app.post("/contato", response_class=HTMLResponse)
@@ -389,17 +396,29 @@ async def pagina_principal():
         "mensagem": mensagem
     }).execute()
     
-    # 2. Envia a notificação por e-mail via Resend
-    try:
-        params = {
-            "from": "onboarding@resend.dev",
-            "to": ["lucychatiaonlinel@gmail.com"],  # Modifique para o seu e-mail de destino
-            "subject": f"Novo contato do site: {nome}",
-            "html": f"<h3>Novo contato</h3><p><b>Nome:</b> {nome}</p><p><b>E-mail:</b> {email}</p><p><b>Mensagem:</b> {mensagem}</p>"
-        }
-        resend.Emails.send(params)
-    except Exception as e:
-        print(f"Erro ao enviar e-mail: {e}")
-    
+    # 2. Envia a notificação por e-mail via SMTP:
+try:
+    # Configura a mensagem
+    msg = MIMEMultipart()
+    msg["From"] = f"Formulário do Site <{EMAIL_USER}>"
+    msg["To"] = EMAIL_RECEIVER
+    msg["Subject"] = f"Novo contato do site: {nome}"
+
+    # Monta o corpo em HTML
+    corpo_html = f"<h3>Novo contato</h3><p><b>Nome:</b> {nome}</p><p><b>E-mail:</b> {email}</p><p><b>Mensagem:</b> {mensagem}</p>"
+    msg.attach(MIMEText(corpo_html, "html", "utf-8"))
+
+    # Conecta ao servidor SMTP do Gmail (Porta 587 para STARTTLS)
+    with smtplib.SMTP("://gmail.com", 587) as server:
+        server.starttls()  # Ativa a criptografia de segurança
+        server.login(EMAIL_USER, EMAIL_PASS)
+        server.sendmail(EMAIL_USER, EMAIL_RECEIVER, msg.as_string())
+        
+    print("E-mail enviado com sucesso via SMTP!")
+
+except Exception as e:
+    print(f"Erro ao enviar e-mail por SMTP: {e}")
+
     return templates.TemplateResponse("contato.html", {"request": request, "sucesso": True})
+
 
