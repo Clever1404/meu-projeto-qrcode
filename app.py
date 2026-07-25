@@ -51,25 +51,29 @@ async def enviar_contato(
         "mensagem": mensagem
     }).execute()
     
-    # 2. Envia a notificação por e-mail via Resend
+    # 2. Envia a notificação por e-mail via SMTP:
     try:
-        params = {
-            "from": "onboarding@resend.dev",  # Use este se for conta de testes, ou seu email verificado (ex: contato@seu-dominio.com)
-            "to": ["seu-email@gmail.com"],     # Substitua pelo e-mail onde você deseja RECEBER o aviso
-            "subject": f"Novo contato do site: {nome}",
-            "html": f"""
-                <h3>Nova Mensagem Recebida no Site</h3>
-                <p><strong>Nome:</strong> {nome}</p>
-                <p><strong>E-mail:</strong> {email}</p>
-                <p><strong>Mensagem:</strong></p>
-                <p style="background: #f4f4f4; padding: 10px; border-left: 4px solid #0070f3;">{mensagem}</p>
-            """
-        }
-        resend.Emails.send(params)
+        # Configura a mensagem
+        msg = MIMEMultipart()
+        msg["From"] = f"Formulário do Site <{EMAIL_USER}>"
+        msg["To"] = EMAIL_RECEIVER
+        msg["Subject"] = f"Novo contato do site: {nome}"
+
+        # Monta o corpo em HTML
+        corpo_html = f"<h3>Novo contato</h3><p><b>Nome:</b> {nome}</p><p><b>E-mail:</b> {email}</p><p><b>Mensagem:</b> {mensagem}</p>"
+        msg.attach(MIMEText(corpo_html, "html", "utf-8"))
+
+        # Conecta ao servidor SMTP do Gmail (Porta 587 para STARTTLS)
+        with smtplib.SMTP("://gmail.com", 587) as server:
+            server.starttls()  # Ativa a criptografia de segurança
+            server.login(EMAIL_USER, EMAIL_PASS)
+            server.sendmail(EMAIL_USER, EMAIL_RECEIVER, msg.as_string())
+            
+        print("E-mail enviado com sucesso via SMTP!")
+
     except Exception as e:
-        print(f"Erro ao enviar e-mail: {e}")
-        # Mesmo se o e-mail falhar, o código continua para não travar a experiência do usuário
-    
+        print(f"Erro ao enviar e-mail por SMTP: {e}")
+
     return templates.TemplateResponse("contato.html", {"request": request, "sucesso": True})
 
 
