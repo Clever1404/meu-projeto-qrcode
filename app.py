@@ -64,7 +64,7 @@ async def enviar_contato(
         msg.attach(MIMEText(corpo_html, "html", "utf-8"))
 
         # Conecta ao servidor SMTP do Gmail (Porta 587 para STARTTLS)
-        with smtplib.SMTP("://gmail.com", 587) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()  # Ativa a criptografia de segurança
             server.login(EMAIL_USER, EMAIL_PASS)
             server.sendmail(EMAIL_USER, EMAIL_RECEIVER, msg.as_string())
