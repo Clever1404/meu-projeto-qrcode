@@ -8,3 +8,4 @@ python-multipart==0.0.9
 crcmod==1.7
 mercadopago==2.1.0
 resend
+itsdangerous>=2.1.2
