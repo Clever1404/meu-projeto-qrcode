@@ -531,6 +531,10 @@ async def webhook_mercadopago(
 @app.get("/checar-creditos")
 async def checar_creditos(email: str):
     email_pagador = email.lower().strip()
+
+
+    # 🌟 ADICIONE ESTE PRINT AQUI PARA VER SE O FRONT-END ESTÁ CONVERSANDO COM O BACKEND:
+    print(f"--> Loop ativo: Navegador consultando saldo de {email_pagador}")
     
     try:
         # 1. Busca se existe alguma intenção de pagamento aberta para esse e-mail no Mercado Pago
