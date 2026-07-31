@@ -417,7 +417,8 @@ async def comprar_creditos(request: Request):
         "payment_method_id": "pix",
         "external_reference": email_logado,
         "payer": {"email": email_logado},
-        
+        # 🌟 CORREÇÃO CRÍTICA: Força o Mercado Pago a enviar o aviso de aprovado para a rota correta do webhook
+        "notification_url": "https://qrpixpro.com.br"
     }
     
     caminho_index = os.path.join(BASE_DIR, "templates", "index.html")
@@ -462,20 +463,13 @@ async def comprar_creditos(request: Request):
             }}, 4000);
         </script>
         """
-    # ... (Seu código anterior do Mercado Pago dentro da rota continua igual) ...
     except Exception as e:
         print(f"Erro no MP: {e}")
         return RedirectResponse(url="/painel?erro_pagamento=Erro+Mercado+Pago", status_code=status.HTTP_303_SEE_OTHER)
 
-    # # =====================================================================
-    # # BLOCO DE CORREÇÃO: INJEÇÃO COMPLETA DE VARIÁVEIS NA TELA DE RECARGA
-    # # =====================================================================
     html = html.replace("{{ usuario_logado }}", str(email_logado))
     html = html.replace("{{ creditos_atuais }}", str(creditos))
-    
-    # CORREÇÃO CRÍTICA: Preenche o e-mail real do usuário no campo ao carregar a tela de checkout
     html = html.replace("VALUE_EMAIL_PLACEHOLDER", str(email_logado))
-    
     html = html.replace("<!-- ERRO_PAINEL_PLACEHOLDER -->", "")
     html = html.replace("<!-- CONTEUDO_DINAMICO_PAINEL -->", bloco_checkout)
     
@@ -491,7 +485,7 @@ async def webhook_mercadopago(request: Request, response: Response, id: str | No
             ja_processado = supabase.table("pagamentos_processados").select("*").eq("id_pagamento", str(id_pagamento)).execute()
             if ja_processado.data:
                 print(f"Webhook ignorado: Pagamento {id_pagamento} já tinha sido computado.")
-                return Response(status_code=status.HTTP_200_OK) # Retorna 200 pro MP parar de enviar
+                return Response(status_code=status.HTTP_200_OK)
 
             pagamento_response = sdk.payment().get(id_pagamento)
             pagamento_info = pagamento_response.get("response", {})
@@ -503,10 +497,10 @@ async def webhook_mercadopago(request: Request, response: Response, id: str | No
                 # 2. Registra o ID imediatamente para bloquear outras tentativas simultâneas
                 supabase.table("pagamentos_processados").insert({"id_pagamento": str(id_pagamento), "email": email_pagador}).execute()
                 
-                # 3. Processa o saldo normalmente
+                # 3. Processa o saldo de 50 créditos com segurança
                 existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
                 if existe.data:
-                    creditos_atuais = existe.data[0]["creditos"] + 50  # Aqui vai adicionar apenas 2 uma única vez
+                    creditos_atuais = existe.data[0]["creditos"] + 50  
                     supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
                 else:
                     supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
@@ -515,7 +509,7 @@ async def webhook_mercadopago(request: Request, response: Response, id: str | No
             print(f"Erro webhook: {e}")
             
     return Response(status_code=status.HTTP_200_OK)
-
+    
 
 @app.get("/checar-creditos", response_class=PlainTextResponse)
 async def checar_creditos(email: str):
