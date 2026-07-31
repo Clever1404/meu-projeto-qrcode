@@ -412,12 +412,11 @@ async def comprar_creditos(request: Request):
         return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
         
     payment_data = {
-        "transaction_amount": 19.90,
-        "description": "Recarga 50 Créditos - QR Pix Pro",
+        "transaction_amount": 5.90,  # 🌟 ALTERADO: Novo valor de R$ 5,90
+        "description": "Recarga 5 Créditos - QR Pix Pro",  # 🌟 ALTERADO: Pacote de 5 créditos
         "payment_method_id": "pix",
         "external_reference": email_logado,
         "payer": {"email": email_logado},
-        # 🌟 CORREÇÃO 1: Aponta para a rota exata do seu webhook
         "notification_url": "https://qrpixpro.com.br"
     }
     
@@ -434,17 +433,14 @@ async def comprar_creditos(request: Request):
         payment_response = sdk.payment().create(payment_data)
         payment = payment_response["response"]
         
-        # 🌟 CORREÇÃO 2: Coleta o ID numérico gerado para a transação
         id_do_pagamento_criado = str(payment.get("id"))
-        
         pix_copia_cola = payment["point_of_interaction"]["transaction_data"]["qr_code"]
         pix_qr_base64 = payment["point_of_interaction"]["transaction_data"]["qr_code_base64"]
         checkout_qr_url = f"data:image/png;base64,{pix_qr_base64}"
 
-        # O Python monta o painel de Checkout com o script de checagem em tempo real embutido
         bloco_checkout = f"""
         <div class="card-panel" id="painel-mercado-pago" style="background: #1e1b4b; color: white; text-align: center; padding: 25px; border-radius:16px;">
-            <h4>Recarga de Saldo Gerada</h4>
+            <h4>Recarga de Saldo Gerada (5 Créditos)</h4>
             <img src="{checkout_qr_url}" style="width:140px; height:140px; margin-bottom:15px; background: white; padding:5px; border-radius:5px;">
             <input type="text" id="mp_token" value="{pix_copia_cola}" readonly style="width:100%; text-align:center; padding:8px; background:rgba(255,255,255,0.1); color:white; border:none; border-radius:5px; margin-bottom:10px; font-size:11px;">
             <button onclick="navigator.clipboard.writeText(document.getElementById('mp_token').value); mostrarPopup('Pix copiado!')" style="width:100%; padding:10px; background:#22c55e; color:white; border:none; font-weight:bold; border-radius:5px; cursor:pointer;">Copiar Código Pix</button>
@@ -452,12 +448,11 @@ async def comprar_creditos(request: Request):
 
         <script>
             var emailSolicitado = "{email_logado}";
-            var idPagamento = "{id_do_pagamento_criado}"; // 🌟 injeta o ID para a checagem ativa
+            var idPagamento = "{id_do_pagamento_criado}"; 
             var saldoInicial = parseInt("{creditos}", 10);
             
             window.intervaloChecagem = setInterval(async function() {{
                 try {{
-                    # 🌟 CORREÇÃO 3: O navegador agora envia o ID do pagamento para validação imediata
                     var resposta = await fetch("/checar-creditos?email=" + encodeURIComponent(emailSolicitado) + "&id_pagamento=" + idPagamento);
                     var textoSaldo = await resposta.text();
                     var saldoAtual = parseInt(textoSaldo, 10);
@@ -484,54 +479,37 @@ async def comprar_creditos(request: Request):
 
 
 @app.post("/webhook/mercadopago")
-async def webhook_mercadopago(
-    request: Request, 
-    response: Response,
-    id: str | None = None,
-    topic: str | None = None
-):
-    id_pagamento = None
-    params = dict(request.query_params)
-    if params.get("type") == "payment" and params.get("data.id"):
-        id_pagamento = params.get("data.id")
-    elif topic == "payment" and id:
-        id_pagamento = id
-
-    if not id_pagamento:
+async def webhook_mercadopago(request: Request, response: Response, id: str | None = None, topic: str | None = None):
+    id_pagamento = id or dict(request.query_params).get("data.id")
+    if id_pagamento and str(id_pagamento) != "123456":
         try:
-            payload = await request.json()
-            if payload.get("type") == "payment" or payload.get("action") in ["payment.created", "payment.updated"]:
-                id_pagamento = payload.get("data", {}).get("id") or payload.get("id")
-        except Exception:
-            pass
+            # 1. Trava antiduplicidade
+            ja_processado = supabase.table("pagamentos_processados").select("*").eq("id_pagamento", str(id_pagamento)).execute()
+            if ja_processado.data:
+                return Response(status_code=status.HTTP_200_OK)
 
-    if id_pagamento:
-        if str(id_pagamento) == "123456":
-            return Response(status_code=status.HTTP_200_OK)
-
-        try:
             pagamento_response = sdk.payment().get(id_pagamento)
             pagamento_info = pagamento_response.get("response", {})
             
             if pagamento_info.get("status") == "approved":
-                # --- BUSCA O E-MAIL REAL DA REFERÊNCIA EXTERNA ---
-                # Se não houver external_reference, ele cai de volta para o payer.email por segurança
                 email_real = pagamento_info.get("external_reference") or pagamento_info["payer"]["email"]
                 email_pagador = email_real.lower().strip()
                 
-                existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
+                # Registra o ID de pagamento com segurança
+                supabase.table("pagamentos_processados").insert({"id_pagamento": str(id_pagamento), "email": email_pagador}).execute()
                 
+                # 2. Adiciona exatamente 5 créditos com índice [0] corrigido
+                existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
                 if existe.data and len(existe.data) > 0:
-                    usuario_atual = existe.data[0]
-                    creditos_atuais = usuario_atual["creditos"] + 50
+                    creditos_atuais = int(existe.data[0]["creditos"]) + 5  # 🌟 ALTERADO: +5 créditos
                     supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
                 else:
-                    supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
+                    supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 5}).execute()  # 🌟 ALTERADO: Inicia com 5
                     
+                print(f"Sucesso Webhook: 5 créditos entregues para {email_pagador}")
         except Exception as e:
-            print(f"Erro interno no processamento do webhook: {e}")
-            return Response(status_code=status.HTTP_200_OK)
-                
+            print(f"Erro webhook: {e}")
+            
     return Response(status_code=status.HTTP_200_OK)
 
 
@@ -539,47 +517,37 @@ async def webhook_mercadopago(
 async def checar_creditos(email: str, id_pagamento: str | None = None):
     email_pagador = email.lower().strip()
     
-    print(f"--> Loop ativo: Consultando saldo de {email_pagador} | ID Pix: {id_pagamento}")
-    
     if id_pagamento:
         try:
-            # 1. Consulta o Mercado Pago pelo ID direto (Extremamente rápido e preciso)
             pagamento_response = sdk.payment().get(id_pagamento)
             pagamento_info = pagamento_response.get("response", {})
             
             if pagamento_info.get("status") == "approved":
-                # 2. Confere a trava antiduplicidade
                 ja_processado = supabase.table("pagamentos_processados").select("*").eq("id_pagamento", str(id_pagamento)).execute()
                 
                 if not ja_processado.data:
-                    # Registra a trava
                     supabase.table("pagamentos_processados").insert({"id_pagamento": str(id_pagamento), "email": email_pagador}).execute()
                     
-                    # 3. Adiciona os 50 créditos no Supabase
                     existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
                     if existe.data and len(existe.data) > 0:
-                        creditos_atuais = existe.data[0]["creditos"] + 50
+                        creditos_atuais = int(existe.data[0]["creditos"]) + 5  # 🌟 Sincronizado para +5
                         supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
                     else:
-                        supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
-                        
-                    print(f"💰 SUCESSO: 50 créditos creditados com sucesso via ID direto para: {email_pagador}")
-                    
+                        supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 5}).execute() # 🌟 Sincronizado para 5
         except Exception as e:
-            print(f"⚠️ Erro ao validar ID de pagamento: {e}")
+            print(f"Erro checagem ativa: {e}")
 
-    # Retorna o saldo atual atualizado para o JavaScript
     creditos_finais = 0
     try:
         user_query = supabase.table("usuarios_pagos").select("creditos").eq("email", email_pagador).execute()
         if user_query.data and len(user_query.data) > 0:
             creditos_finais = user_query.data[0].get("creditos", 0)
-    except Exception as e:
-        print(f"Erro ao buscar saldo final: {e}")
+    except:
+        pass
         
     return PlainTextResponse(str(creditos_finais))
 
-    
+
 # NOVA ROTA DE EMERGÊNCIA (Intercepta o Mercado Pago diretamente na raiz)
 @app.post("/")
 async def receber_pagamento_raiz(request: Request):
