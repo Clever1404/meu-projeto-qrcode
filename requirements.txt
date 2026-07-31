@@ -9,3 +9,4 @@ crcmod==1.7
 mercadopago==2.1.0
 resend
 itsdangerous>=2.1.2
+python-dotenv>=1.0.1
