@@ -352,7 +352,7 @@ async def criar_qrcode(
         # CORREÇÃO: Acessa o índice [0] da lista do Supabase com segurança
         if not dados_lista or len(dados_lista) == 0:
             supabase.table("usuarios_pagos").insert({"email": email_final, "creditos": 2}).execute()
-            creditos_atuais = 3
+            creditos_atuais = 2
         else:
             primeiro_registro = dados_lista[0]
             creditos_atuais = int(primeiro_registro.get("creditos", 0))
