@@ -7,6 +7,7 @@ jinja2==3.1.4
 python-multipart==0.0.9
 crcmod==1.7
 mercadopago==2.1.0
-resend
+resend>=2.4.0
 itsdangerous>=2.1.2
 python-dotenv>=1.0.1
+bcrypt>=4.1.0
