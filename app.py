@@ -509,7 +509,7 @@ async def webhook_mercadopago(request: Request, response: Response, id: str | No
             print(f"Erro webhook: {e}")
             
     return Response(status_code=status.HTTP_200_OK)
-    
+
 
 @app.get("/checar-creditos", response_class=PlainTextResponse)
 async def checar_creditos(email: str):
@@ -518,3 +518,44 @@ async def checar_creditos(email: str):
         return str(user_query.data[0]["creditos"])
     return "0"
 
+# NOVA ROTA DE EMERGÊNCIA (Intercepta o Mercado Pago diretamente na raiz)
+@app.post("/")
+async def receber_pagamento_raiz(request: Request):
+    # Coleta o ID enviado pelo Mercado Pago (ex: ?data.id=170502590943)
+    params = dict(request.query_params)
+    id_pagamento = params.get("data.id") or params.get("id")
+    
+    if id_pagamento and str(id_pagamento) != "123456":
+        try:
+            # 1. Trava antiduplicidade
+            ja_processado = supabase.table("pagamentos_processados").select("*").eq("id_pagamento", str(id_pagamento)).execute()
+            if ja_processado.data:
+                print(f"Pagamento raiz {id_pagamento} já processado anteriormente.")
+                return Response(status_code=status.HTTP_200_OK)
+
+            # 2. Busca informações do pagamento no Mercado Pago
+            pagamento_response = sdk.payment().get(id_pagamento)
+            pagamento_info = pagamento_response.get("response", {})
+            
+            if pagamento_info.get("status") == "approved":
+                email_real = pagamento_info.get("external_reference") or pagamento_info["payer"]["email"]
+                email_pagador = email_real.lower().strip()
+                
+                # Registra o ID para evitar duplicidade
+                supabase.table("pagamentos_processados").insert({"id_pagamento": str(id_pagamento), "email": email_pagador}).execute()
+                
+                # 3. Adiciona os 50 créditos no Supabase com índice [0] corrigido
+                existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
+                if existe.data:
+                    creditos_atuais = existe.data[0]["creditos"] + 50  # Corrigido com índice [0]
+                    supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
+                else:
+                    supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
+                
+                print(f"Sucesso! 50 créditos adicionados na marra para: {email_pagador}")
+                
+        except Exception as e:
+            print(f"Erro no processamento da raiz: {e}")
+            
+    # Retorna 200 OK para o Mercado Pago saber que recebemos o aviso
+    return Response(status_code=status.HTTP_200_OK)
