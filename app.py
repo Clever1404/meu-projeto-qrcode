@@ -417,7 +417,7 @@ async def comprar_creditos(request: Request):
         "payment_method_id": "pix",
         "external_reference": email_logado,
         "payer": {"email": email_logado},
-        # 🌟 CORREÇÃO CRÍTICA: Força o Mercado Pago a enviar o aviso de aprovado para a rota correta do webhook
+        # 🌟 CORREÇÃO 1: Aponta para a rota exata do seu webhook
         "notification_url": "https://qrpixpro.com.br"
     }
     
@@ -433,6 +433,10 @@ async def comprar_creditos(request: Request):
             
         payment_response = sdk.payment().create(payment_data)
         payment = payment_response["response"]
+        
+        # 🌟 CORREÇÃO 2: Coleta o ID numérico gerado para a transação
+        id_do_pagamento_criado = str(payment.get("id"))
+        
         pix_copia_cola = payment["point_of_interaction"]["transaction_data"]["qr_code"]
         pix_qr_base64 = payment["point_of_interaction"]["transaction_data"]["qr_code_base64"]
         checkout_qr_url = f"data:image/png;base64,{pix_qr_base64}"
@@ -448,10 +452,13 @@ async def comprar_creditos(request: Request):
 
         <script>
             var emailSolicitado = "{email_logado}";
+            var idPagamento = "{id_do_pagamento_criado}"; // 🌟 injeta o ID para a checagem ativa
             var saldoInicial = parseInt("{creditos}", 10);
+            
             window.intervaloChecagem = setInterval(async function() {{
                 try {{
-                    var resposta = await fetch("/checar-creditos?email=" + encodeURIComponent(emailSolicitado));
+                    # 🌟 CORREÇÃO 3: O navegador agora envia o ID do pagamento para validação imediata
+                    var resposta = await fetch("/checar-creditos?email=" + encodeURIComponent(emailSolicitado) + "&id_pagamento=" + idPagamento);
                     var textoSaldo = await resposta.text();
                     var saldoAtual = parseInt(textoSaldo, 10);
                     if (!isNaN(saldoAtual) && saldoAtual > saldoInicial) {{
@@ -529,59 +536,50 @@ async def webhook_mercadopago(
 
 
 @app.get("/checar-creditos")
-async def checar_creditos(email: str):
+async def checar_creditos(email: str, id_pagamento: str | None = None):
     email_pagador = email.lower().strip()
-
-
-    # 🌟 ADICIONE ESTE PRINT AQUI PARA VER SE O FRONT-END ESTÁ CONVERSANDO COM O BACKEND:
-    print(f"--> Loop ativo: Navegador consultando saldo de {email_pagador}")
     
-    try:
-        # 1. Busca se existe alguma intenção de pagamento aberta para esse e-mail no Mercado Pago
-        # Vamos listar os últimos pagamentos criados por Pix para achar o aprovado
-        filtros = {
-            "status": "approved",
-            "external_reference": email_pagador
-        }
-        busca_pagamento = sdk.payment().search(filtros)
-        resultados = busca_pagamento.get("response", {}).get("results", [])
-        
-        if resultados:
-            # Pegamos o pagamento aprovado mais recente
-            pagamento_info = resultados[0]
-            id_pagamento = str(pagamento_info.get("id"))
+    print(f"--> Loop ativo: Consultando saldo de {email_pagador} | ID Pix: {id_pagamento}")
+    
+    if id_pagamento:
+        try:
+            # 1. Consulta o Mercado Pago pelo ID direto (Extremamente rápido e preciso)
+            pagamento_response = sdk.payment().get(id_pagamento)
+            pagamento_info = pagamento_response.get("response", {})
             
-            # 2. Confere na trava antiduplicidade se esses créditos já foram entregues
-            ja_processado = supabase.table("pagamentos_processados").select("*").eq("id_pagamento", id_pagamento).execute()
-            
-            if not ja_processado.data:
-                # Se não foi processado ainda, registra a trava
-                supabase.table("pagamentos_processados").insert({"id_pagamento": id_pagamento, "email": email_pagador}).execute()
+            if pagamento_info.get("status") == "approved":
+                # 2. Confere a trava antiduplicidade
+                ja_processado = supabase.table("pagamentos_processados").select("*").eq("id_pagamento", str(id_pagamento)).execute()
                 
-                # 3. Adiciona os 50 créditos no Supabase
-                existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
-                if existe.data:
-                    creditos_atuais = existe.data[0]["creditos"] + 50
-                    supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
-                else:
-                    supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
+                if not ja_processado.data:
+                    # Registra a trava
+                    supabase.table("pagamentos_processados").insert({"id_pagamento": str(id_pagamento), "email": email_pagador}).execute()
                     
-                print(f"Sucesso! 50 créditos creditados via checagem ativa para: {email_pagador}")
-                
-    except Exception as e:
-        print(f"Erro ao checar créditos ativamente: {e}")
+                    # 3. Adiciona os 50 créditos no Supabase
+                    existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
+                    if existe.data and len(existe.data) > 0:
+                        creditos_atuais = existe.data[0]["creditos"] + 50
+                        supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
+                    else:
+                        supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
+                        
+                    print(f"💰 SUCESSO: 50 créditos creditados com sucesso via ID direto para: {email_pagador}")
+                    
+        except Exception as e:
+            print(f"⚠️ Erro ao validar ID de pagamento: {e}")
 
-    # Retorna o saldo atual atualizado para o JavaScript da página
+    # Retorna o saldo atual atualizado para o JavaScript
     creditos_finais = 0
     try:
         user_query = supabase.table("usuarios_pagos").select("creditos").eq("email", email_pagador).execute()
-        if user_query.data:
+        if user_query.data and len(user_query.data) > 0:
             creditos_finais = user_query.data[0].get("creditos", 0)
-    except:
-        pass
+    except Exception as e:
+        print(f"Erro ao buscar saldo final: {e}")
         
     return PlainTextResponse(str(creditos_finais))
 
+    
 # NOVA ROTA DE EMERGÊNCIA (Intercepta o Mercado Pago diretamente na raiz)
 @app.post("/")
 async def receber_pagamento_raiz(request: Request):
