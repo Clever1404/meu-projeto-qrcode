@@ -511,12 +511,55 @@ async def webhook_mercadopago(request: Request, response: Response, id: str | No
     return Response(status_code=status.HTTP_200_OK)
 
 
-@app.get("/checar-creditos", response_class=PlainTextResponse)
+@app.get("/checar-creditos")
 async def checar_creditos(email: str):
-    user_query = supabase.table("usuarios_pagos").select("creditos").eq("email", email.strip().lower()).execute()
-    if user_query.data and len(user_query.data) > 0:
-        return str(user_query.data[0]["creditos"])
-    return "0"
+    email_pagador = email.lower().strip()
+    
+    try:
+        # 1. Busca se existe alguma intenção de pagamento aberta para esse e-mail no Mercado Pago
+        # Vamos listar os últimos pagamentos criados por Pix para achar o aprovado
+        filtros = {
+            "status": "approved",
+            "external_reference": email_pagador
+        }
+        busca_pagamento = sdk.payment().search(filtros)
+        resultados = busca_pagamento.get("response", {}).get("results", [])
+        
+        if resultados:
+            # Pegamos o pagamento aprovado mais recente
+            pagamento_info = resultados[0]
+            id_pagamento = str(pagamento_info.get("id"))
+            
+            # 2. Confere na trava antiduplicidade se esses créditos já foram entregues
+            ja_processado = supabase.table("pagamentos_processados").select("*").eq("id_pagamento", id_pagamento).execute()
+            
+            if not ja_processado.data:
+                # Se não foi processado ainda, registra a trava
+                supabase.table("pagamentos_processados").insert({"id_pagamento": id_pagamento, "email": email_pagador}).execute()
+                
+                # 3. Adiciona os 50 créditos no Supabase
+                existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
+                if existe.data:
+                    creditos_atuais = existe.data[0]["creditos"] + 50
+                    supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
+                else:
+                    supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
+                    
+                print(f"Sucesso! 50 créditos creditados via checagem ativa para: {email_pagador}")
+                
+    except Exception as e:
+        print(f"Erro ao checar créditos ativamente: {e}")
+
+    # Retorna o saldo atual atualizado para o JavaScript da página
+    creditos_finais = 0
+    try:
+        user_query = supabase.table("usuarios_pagos").select("creditos").eq("email", email_pagador).execute()
+        if user_query.data:
+            creditos_finais = user_query.data[0].get("creditos", 0)
+    except:
+        pass
+        
+    return PlainTextResponse(str(creditos_finais))
 
 # NOVA ROTA DE EMERGÊNCIA (Intercepta o Mercado Pago diretamente na raiz)
 @app.post("/")
