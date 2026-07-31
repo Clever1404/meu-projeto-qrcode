@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel - QRPix PRO</title>
+    <title>QR Pix Pro - Sistema Inteligente</title>
     
     <!-- CSS EMBUTIDO COMPILADO E EXPANDIDO (À prova de bloqueios de privacidade) -->
     <style>
@@ -48,7 +48,11 @@
         .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
         
         .w-full { width: 100%; }
+        .max-w-5xl { max-w: 64rem; }
         .max-w-4xl { max-w: 56rem; }
+        .max-w-lg { max-w: 32rem; }
+        .max-w-md { max-w: 28rem; }
+        .max-w-2xl { max-w: 42rem; }
         .w-44 { width: 11rem; }
         .h-44 { height: 11rem; }
         .w-40 { width: 10rem; }
@@ -68,8 +72,9 @@
         .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
         .pt-12 { padding-top: 3rem; }
         
-        .mt-8 { margin-top: 2rem; }
-        .mt-12 { margin-top: 3rem; }
+        .mt-10 { margin-top: 2.5rem; }
+        .mt-16 { margin-top: 4rem; }
+        .mt-24 { margin-top: 6rem; }
         .mb-1 { margin-bottom: 0.25rem; }
         .mb-2 { margin-bottom: 0.5rem; }
         .mb-3 { margin-bottom: 0.75rem; }
@@ -95,10 +100,14 @@
         .border-green-200 { border-color: #bbf7d0; }
         .border-red-500 { border-color: #ef4444; }
         
-        .flex { display: flex; }
         .grid { display: grid; }
+        .flex { display: flex; }
+        .inline-block { display: inline-block; }
+        .block { display: block; }
+        .gap-2 { gap: 0.5rem; }
         .gap-4 { gap: 1rem; }
         .gap-6 { gap: 1.5rem; }
+        .gap-8 { gap: 2rem; }
         .items-center { align-items: center; }
         .items-start { align-items: flex-start; }
         .justify-between { justify-content: space-between; }
@@ -126,6 +135,7 @@
         button { cursor: pointer; border: none; transition: all 0.2s; }
         button:hover { opacity: 0.9; }
 
+        /* Estilo do Pop-up (Toast Notification) */
         #custom-popup {
             position: fixed;
             top: 20px;
@@ -152,14 +162,18 @@
         }
         
         @media (min-width: 640px) {
-            .sm-Spectrum-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .sm-Spectrum-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .sm\Spectrum-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .sm\Spectrum-flex-row { flex-direction: row; }
+            .sm\Spectrum-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
-
-      
+        @media (min-width: 768px) {
+            .md\Spectrum-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .md\Spectrum-col-2 { grid-column: span 2 / span 2; }
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
+
 
     <!-- Estrutura Oculta do Pop-up Customizado -->
     <div id="custom-popup">
@@ -167,144 +181,241 @@
         <span id="custom-popup-text">Notificação</span>
     </div>
 
-    <!-- NAVEGAÇÃO -->
     <nav class="bg-white shadow-sm border-gray-100 flex justify-between items-center px-4 py-3" style="border-bottom-width:1px;">
         <div class="flex items-center" style="gap:0.5rem;">
             <span class="font-extrabold text-xl text-gray-900">QR<span class="text-indigo-600">Pix</span> Pro</span>
         </div>
-        <div class="flex items-center" style="gap: 15px;">
-            <span class="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full font-bold">Homologado BB</span>
-            <span class="text-xs text-gray-500 font-medium">Logado como: <strong>{{ usuario_logado }}</strong> (Saldo: <strong class="text-green-600">{{ creditos_atuais }}</strong>)</span>
-            <a href="/logout" style="color:#ef4444; font-weight: bold; text-decoration: none; font-size: 13px;">Sair</a>
-        </div>
+        <span class="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full font-bold">Homologado BB</span>
     </nav>
 
-    <!-- CONTAINER PRINCIPAL EMPILHADO VERTICALMENTE (MAX-W-4XL PARA FICAR COMPACTO) -->
-    <main class="max-w-4xl mx-auto px-4 py-10 flex" style="flex-direction: column; gap: 2rem;">
+       <!-- Adicione isso logo abaixo da tag <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md"> -->
+    <div class="flex justify-end mb-4">
+        <a href="/contato" class="text-sm text-blue-600 px-3 hover:underline font-medium">Fale Conosco</a>
+    </div>
+
+
+    <main class="max-w-5xl mx-auto px-4 py-10">
         
-        <div class="flex justify-end">
-            <a href="/contato" class="text-sm text-blue-600 px-3 hover:underline font-medium" style="text-decoration: none;">Fale Conosco</a>
-        </div>
-
-        <!-- Local dinâmico onde o Python vai injetar caixas de erro do formulário -->
-        <!-- ERRO_PAINEL_PLACEHOLDER -->
-
-        <!-- 1) RETÂNGULO MAIOR: FORMULÁRIO PRINCIPAL -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-lg font-bold text-gray-800">Dados da Cobrança</h2>
+        {% if erro_pagamento %}
+        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl mb-8 flex items-start" style="gap:1rem;">
+            <div>
+                <p class="text-red-800 font-bold">Acesso Restrito</p>
+                <p class="text-red-700 text-sm">{{ erro_pagamento }}</p>
             </div>
+        </div>
+        {% endif %}
+
+        
+
+        <div class="grid md:Spectrum-grid-3 gap-8 items-start">
             
-            <form method="post" action="/painel" class="flex" style="flex-direction:column; gap:1rem;">
+            <!-- Formulário Principal -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 md:Spectrum-col-2">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-bold text-gray-800">Dados da Cobrança</h2>
+                    {% if creditos_restantes is not none %}
+                    <span class="text-xs bg-indigo-50 text-indigo-700 px-3 py-1 rounded-md font-bold">
+                        Saldo: {{ creditos_restantes }} créditos restantes
+                    </span>
+                    {% endif %}
+                </div>
                 
-                <!-- Container unificado com largura total idêntica ao bloco superior -->
-                <div style="display: flex; flex-direction: column; gap: 16px; width: 100%; box-sizing: border-box;">
-                    
-                    <!-- Campo de E-mail de Usuário -->
-                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200" style="width: 100%; box-sizing: border-box;">
-                        <label class="block text-xs font-bold text-indigo-700 mb-1" style="display: block; margin-bottom: 4px;">Seu E-mail de Usuário (Controle de Créditos) <span class="text-red-500">*</span></label>
-                        <input type="email" name="email_cliente" value="VALUE_EMAIL_PLACEHOLDER" placeholder="Ex: seue-mail@gmail.com" required style="width: 100%; height: 44px; padding: 12px 16px; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 14px; box-sizing: border-box;">
+                <form method="post" class="flex" style="flex-direction:column; gap:1rem;">
+                    <!-- Campo de E-mail Padronizado na Altura py-2.5 -->
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <!-- Bloco do E-mail de Usuário -->
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <label class="block text-xs font-bold text-indigo-700 mb-1">Seu E-mail de Usuário (Controle de Créditos) <span class="text-red-500">*</span></label>
+                        <input type="email" name="email_cliente" value="{{ email_usado or email_bloqueado or '' }}" placeholder="Ex: seue-mail@gmail.com" required class="w-full px-4 py-3 bg-white border-gray-200 rounded-xl text-sm">
                         <p class="text-gray-400 text-xs mt-1">E-mails novos ganham <strong>3 gerações gratuitas</strong> automaticamente.</p>
                     </div>
 
                     <!-- Campo da Chave Pix -->
-                    <div style="width: 100%; box-sizing: border-box;">
-                        <label class="block text-xs font-bold text-gray-500 mb-1" style="display: block; margin-bottom: 4px;">Chave Pix <span class="text-red-500">*</span></label>
-                        <input type="text" name="chave" placeholder="CPF, Celular, E-mail ou EVP" required style="width: 100%; height: 44px; padding: 12px 16px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 14px; box-sizing: border-box;">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Chave Pix <span class="text-red-500">*</span></label>
+                        <input type="text" name="chave" placeholder="CPF, Celular, E-mail ou EVP" required class="w-full px-4 py-3 bg-gray-50 border-gray-200 rounded-xl text-sm box-border">
                     </div>
 
                     <!-- Campo do Nome do Beneficiário -->
-                    <div style="width: 100%; box-sizing: border-box;">
-                        <label class="block text-xs font-bold text-gray-500 mb-1" style="display: block; margin-bottom: 4px;">Nome do Beneficiário <span class="text-red-500">*</span></label>
-                        <input type="text" name="nome" placeholder="João Silva" maxlength="25" required style="width: 100%; height: 44px; padding: 12px 16px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 14px; box-sizing: border-box;">
-                    </div>
-                </div>
-
-                
-                <!-- Campos de Cidade e Valor -->
-                <div style="display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 16px !important; width: 100% !important; box-sizing: border-box !important;">
-                    <div style="display: block !important; width: 100% !important;">
-                        <label class="block text-xs font-bold text-gray-500 mb-1">Cidade <span class="text-red-500">*</span></label>
-                        <input type="text" name="cidade" placeholder="Curitiba" maxlength="15" required class="w-full px-4 py-3 bg-gray-50 border-gray-200 rounded-xl text-sm box-box-border" style="width: 100% !important; box-sizing: border-box !important;">
-                    </div>
-                    <div style="display: block !important; width: 100% !important;">
-                        <label class="block text-xs font-bold text-gray-500 mb-1">Valor (R$) <span class="text-red-500">*</span></label>
-                        <input type="number" name="valor" step="0.01" min="0.00" value="0.00" required class="w-full px-4 py-3 bg-gray-50 border-gray-200 rounded-xl text-sm box-box-border" style="width: 100% !important; box-sizing: border-box !important;">
-                    </div>
-                </div>
-
-                
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md text-sm transition">
-                    Consumir 1 Crédito e Gerar QR Code
-                </button>
-            </form>
-
-            <!-- BLOCO ADQUIRIR CRÉDITOS NO PAINEL -->
-            <div class="mt-8 pt-6 border-t border-gray-100">
-                <h3 class="text-sm font-bold text-gray-800 mb-2">Adquirir mais Créditos</h3>
-                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex items-center justify-between gap-4">
                     <div>
-                        <p class="text-sm font-bold text-gray-900" style="margin:0;">Recarga Econômica</p>
-                        <p class="text-2xs text-gray-500" style="margin:0;">Recarregar +50 créditos na sua conta por <strong class="text-indigo-600">R$ 19,90</strong></p>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Nome do Beneficiário <span class="text-red-500">*</span></label>
+                        <input type="text" name="nome" placeholder="João Silva" maxlength="25" required class="w-full px-4 py-3 bg-gray-50 border-gray-200 rounded-xl text-sm box-border">
                     </div>
-                    <form action="/comprar-creditos" method="POST" style="margin:0;">
-                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl text-xs shadow-sm transition">
-                            Recarregar
-                        </button>
-                    </form>
+
+                    <!-- Campos de Cidade e Valor (Alinhados dentro do Grid sem estourar) -->
+                    <div class="grid sm:Spectrum-grid gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">Cidade <span class="text-red-500">*</span></label>
+                            <input type="text" name="cidade" placeholder="Curitiba" maxlength="15" required class="w-full px-4 py-3 bg-gray-50 border-gray-200 rounded-xl text-sm box-border">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">Valor (R$) (opcional)</label>
+                            <input type="number" name="valor" step="0.01" min="0.00" value="0.00" required class="w-full px-4 py-3 bg-gray-50 border-gray-200 rounded-xl text-sm box-border">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md text-sm transition">
+                        Gerar QR Code Compatível
+                    </button>
+                </form>
+            </div>
+
+            <!-- Painel de Exibição Dinâmica (QR Code do Cliente ou Checkout do Mercado Pago) -->
+            <div>
+                {% if checkout_pix %}
+                <!-- Bloco de Checkout do Mercado Pago -->
+                <div id="painel-mercado-pago" class="bg-gradient-to-br from-indigo-900 to-purple-950 p-6 rounded-2xl shadow-xl text-white text-center">
+                    <h3 class="font-black text-xl mb-1">Recarregar Créditos</h3>
+                    <p class="text-indigo-200 text-xs mb-4">Adquira 20 créditos por apenas <strong>R$ 19,90</strong></p>
+                    
+                    <div class="bg-white p-3 rounded-xl inline-block mb-4 shadow-sm">
+                        <img src="{{ checkout_qr }}" alt="Pague com Pix" class="w-40 h-40">
+                    </div>
+
+                    <label class="block text-left text-xs font-bold text-indigo-300 mb-1">Código Copia e Cola Mercado Pago:</label>
+                    <input type="text" id="mp_token" value="{{ checkout_pix }}" readonly class="w-full px-3 py-1.5 bg-indigo-950/50 border border-indigo-800 rounded-lg text-xs font-mono text-indigo-200 mb-3 text-center truncate">
+                    
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('mp_token').value); mostrarPopup('Pix Mercado Pago copiado!')"
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl text-sm shadow-md transition">
+                        Copiar Pix de Recarga
+                    </button>
+                    <p class="text-indigo-300 text-2xs mt-2">Liberação automática após o pagamento.</p>
                 </div>
+
+                <!-- O SCRIPT JAVASCRIPT FICA EMBUTIDO AQUI, DENTRO DO BLOCO DO CHECKOUT -->
+                <script>
+                    const emailSolicitado = "{{ email_solicitado or email_bloqueado }}";
+                    const saldoInicial = parseInt("{{ creditos_atuais or 0 }}", 10);
+                    
+                    window.intervaloChecagem = setInterval(async () => {
+                        try {
+                            const resposta = await fetch(`/checar-creditos?email=${encodeURIComponent(emailSolicitado)}`);
+                            const textoSaldo = await resposta.text();
+                            const saldoAtual = parseInt(textoSaldo, 10);
+                            
+                            if (!isNaN(saldoAtual) && saldoAtual > saldoInicial) {
+                                clearInterval(window.intervaloChecagem); // Para o relógio imediatamente
+                                
+                                mostrarPopup("Crédito Liberado! Seus créditos já estão disponíveis.");
+                                
+                                const painelMERCADO = document.getElementById('painel-mercado-pago');
+                                if (painelMERCADO) {
+                                    painelMERCADO.className = "bg-green-50 p-6 rounded-2xl border border-green-200 text-center text-gray-800 shadow-sm";
+                                    painelMERCADO.innerHTML = `
+                                        <div class="p-2 text-center">
+                                            <div class="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md" style="font-size: 1.5rem; font-weight: bold; line-height: 48px;">
+                                                ✓
+                                            </div>
+                                            <h3 class="font-black text-xl text-green-600 mb-1">Crédito Liberado!</h3>
+                                            <p class="text-gray-500 text-xs mb-6">Seus 20 novos créditos foram validados e adicionados com sucesso.</p>
+                                            <button onclick="finalizarRecarga()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm shadow-md transition">
+                                                Começar a Usar
+                                            </button>
+                                        </div>
+                                    `;
+                                }
+                            }
+                        } catch (erro) {
+                            console.error("Aguardando confirmação...", erro);
+                        }
+                    }, 4000);
+
+                    function finalizarRecarga() {
+                        clearInterval(window.intervaloChecagem);
+                        window.location.href = "/";
+                    }
+                </script>
+
+                {% elif qrcode_gerado %}
+                <!-- Bloco do QR Code gerado pelo cliente com botão de download -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
+                    <span class="text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full">QR Code Ativo</span>
+                    <div class="my-4 flex justify-center">
+                        <img src="{{ qrcode_gerado }}" alt="QR Code Pix" class="w-44 h-44 border p-2 bg-white rounded-lg border-gray-200">
+                    </div>
+                    <input type="text" id="copia_cola" value="{{ payload_final }}" readonly class="w-full px-3 py-1.5 bg-gray-50 border rounded-lg text-xs font-mono text-gray-500 mb-3 text-center truncate border-gray-200">
+                    
+                    <div class="flex" style="flex-direction: column; gap: 0.5rem;">
+                        <button onclick="navigator.clipboard.writeText(document.getElementById('copia_cola').value); mostrarPopup('Código copiado!')" class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-3 rounded-xl shadow-md transition">
+                            Copiar Código
+                        </button>
+                        <a href="{{ qrcode_gerado }}" download="qrcode_pix.png" style="text-decoration: none;" class="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-3 rounded-xl shadow-md transition text-center">
+                            Baixar Imagem QR Code
+                        </a>
+                    </div>
+                </div>
+
+                {% else %}
+                <!-- Mensagem Padrão de Formulário Vazio -->
+                <div class="bg-gray-100 p-6 rounded-2xl border border-gray-200 text-center text-gray-400 py-20" style="border-style:dashed; border-width:2px;">
+                    <p class="text-sm font-medium text-gray-500">Preencher os campos obrigatórios em (*) para gerar o QRCode.</p>
+                </div>
+                {% endif %}
             </div>
         </div>
 
-        <!-- PAINEL DE RETORNO DINÂMICO (OCUPA A LARGURA TOTAL ABAIXO DO FORMULÁRIO) -->
-        <div class="w-full">
-            <!-- CONTEUDO_DINAMICO_PAINEL -->
-        </div>
 
-        <!-- SEÇÃO INFORMATIVA -->
-        <div class="pt-6 w-full">
-            <h2 class="text-xl font-black text-gray-900 mb-6 text-left">Como funciona o nosso sistema?</h2>
+        <!-- Seção Informativa Inferior (Fontes aumentadas e numeração preta alinhada à esquerda) -->
+        <div class="mt-16 text-center border-t border-gray-200 pt-12">
+            <h2 class="text-2xl font-black text-gray-900 mb-8">Como funciona o nosso sistema?</h2>
             
-            <div class="grid sm-Spectrum-grid-3 gap-4">
-                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-start" style="gap: 0.75rem;">
-                    <div class="text-gray-900 font-black text-base whitespace-nowrap" style="line-height: 1.4;">1° )</div>
+            <div class="grid sm:Spectrum-grid-3 gap-6 text-left max-w-4xl mx-auto mb-10">
+                <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-start" style="gap: 0.75rem;">
+                    <div class="text-gray-900 font-black text-xl whitespace-nowrap" style="line-height: 1.6;">1° )</div>
                     <div>
-                        <h4 class="font-extrabold text-sm mb-1 text-gray-900">2 Testes Grátis</h4>
-                        <p class="text-gray-500 text-xs" style="line-height: 1.4;">Crie sua conta para validar o funcionamento estrito em aplicativos rígidos como o Banco do Brasil.</p>
+                        <h4 class="font-extrabold text-lg mb-1.5 text-gray-900">3 Testes Grátis</h4>
+                        <p class="text-gray-500 text-base" style="line-height: 1.4;">Insira qualquer e-mail para validar o funcionamento estrito em aplicativos rígidos como o Banco do Brasil.</p>
                     </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-start" style="gap: 0.75rem;">
-                    <div class="text-gray-900 font-black text-base whitespace-nowrap" style="line-height: 1.4;">2° )</div>
+                <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-start" style="gap: 0.75rem;">
+                    <div class="text-gray-900 font-black text-xl whitespace-nowrap" style="line-height: 1.6;">2° )</div>
                     <div>
-                        <h4 class="font-extrabold text-sm mb-1 text-gray-900">Recargas Rápidas</h4>
-                        <p class="text-gray-500 text-xs" style="line-height: 1.4;">Sempre que precisar de mais envios, adquira um pacote Pix no valor de R$ 19,90 direto no painel do site.</p>
+                        <h4 class="font-extrabold text-lg mb-1.5 text-gray-900">Recargas Rápidas</h4>
+                        <p class="text-gray-500 text-base" style="line-height: 1.4;">Sempre que precisar de mais envios, faça um Pix no valor de R$ 19,90 direto no painel lateral do site.</p>
                     </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-start" style="gap: 0.75rem;">
-                    <div class="text-gray-900 font-black text-base whitespace-nowrap" style="line-height: 1.4;">3° )</div>
+                <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-start" style="gap: 0.75rem;">
+                    <div class="text-gray-900 font-black text-xl whitespace-nowrap" style="line-height: 1.6;">3° )</div>
                     <div>
-                        <h4 class="font-extrabold text-sm mb-1 text-gray-900">Saldo Cumulativo</h4>
-                        <p class="text-gray-500 text-xs" style="line-height: 1.4;">Seus créditos adquiridos não expiram e ficam salvos sob a conta autenticada na plataforma.</p>
+                        <h4 class="font-extrabold text-lg mb-1.5 text-gray-900">Saldo Cumulativo</h4>
+                        <p class="text-gray-500 text-base" style="line-height: 1.4;">Seus créditos adquiridos não expiram e ficam salvos sob o e-mail informado na plataforma.</p>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Formulário Adicional de Recarga Padronizado e Alinhado na Altura -->
+            <div class="bg-indigo-50 rounded-2xl p-6 max-w-lg mx-auto text-left border border-indigo-100 shadow-sm">
+                <h4 class="font-extrabold text-base text-indigo-950 mb-1">Precisa recarregar seu saldo agora?</h4>
+                <p class="text-indigo-800 text-xs mb-3">Insira seu e-mail abaixo para gerar o Pix de recarga de 20 créditos.</p>
+                
+                <form action="/comprar-creditos" method="post" class="flex sm:Spectrum-flex-row" style="flex-direction:column; gap:0.5rem;">
+                    <input type="email" name="email_compra" placeholder="Seu e-mail cadastrado" required class="flex-1 px-4 py-3 bg-white border border-indigo-200 rounded-xl text-sm box-border">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl text-sm shadow-md whitespace-nowrap transition">   
+                    Recarregar Saldo
+                    </button>
+                </form>
             </div>
         </div>
     </main>
 
+    <!-- Rodapé Oficial -->
     <footer class="bg-white border-t border-gray-100 mt-24 py-6 text-center text-xs text-gray-400">
         <p>&copy; 2026 QR Pix Pro. Todos os direitos reservados. Homologado conforme Resolução do BC.</p>
     </footer>
 
+    <!-- Script de Controle do Pop-up Customizado -->
     <script>
         function mostrarPopup(mensagem) {
             const popup = document.getElementById('custom-popup');
             const popupText = document.getElementById('custom-popup-text');
+            
             if (popup && popupText) {
                 popupText.innerText = mensagem;
                 popup.classList.add('show');
-                setTimeout(() => { popup.classList.remove('show'); }, 3500);
+                
+                setTimeout(() => {
+                    popup.classList.remove('show');
+                }, 3500);
             }
         }
     </script>
-</body>
-</html>
