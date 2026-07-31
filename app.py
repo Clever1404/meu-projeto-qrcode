@@ -198,8 +198,12 @@ async def pagina_inicial_painel(request: Request):
     try:
         user_query = supabase.table("usuarios_pagos").select("creditos").eq("email", email_logado).execute()
         dados_lista = user_query.data if user_query.data else []
-        # CORREÇÃO: Verifica se a lista tem registros e acessa o primeiro item com índice [0]
-        if len(dados_lista) > 0:
+        
+        # SE NÃO EXISTIR REGISTRO: Cria o usuário direto com 2 créditos
+        if not dados_lista or len(dados_lista) == 0:
+            supabase.table("usuarios_pagos").insert({"email": email_logado, "creditos": 2}).execute()
+            creditos = 2
+        else:
             primeiro_registro = dados_lista[0]
             creditos = int(primeiro_registro.get("creditos", 0))
     except Exception as e:
@@ -304,7 +308,7 @@ async def processar_cadastro(request: Request, nome: str = Form(...), email: str
             "nome": nome, 
             "email": email_cadastro, 
             "senha_hash": senha_criptografada, 
-            "creditos": 3
+            "creditos": 2
         }).execute()
 
     # Sucesso: Carrega o arquivo do login e injeta o alerta de sucesso verde nele
