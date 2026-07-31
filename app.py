@@ -416,7 +416,7 @@ async def comprar_creditos(request: Request):
         "description": "Recarga 50 Créditos - QR Pix Pro",
         "payment_method_id": "pix",
         "external_reference": email_logado,
-        "payer": {"email": email_logado}
+        "payer": {"email": email_logado},
         # 🌟 CERTIFIQUE-SE DE QUE ESTA LINHA APONTA PARA A ROTA CORRETA:
         "notification_url": "https://qrpixpro.com.br"
     }
