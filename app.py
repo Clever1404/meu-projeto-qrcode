@@ -477,37 +477,54 @@ async def comprar_creditos(request: Request):
 
 
 @app.post("/webhook/mercadopago")
-async def webhook_mercadopago(request: Request, response: Response, id: str | None = None, topic: str | None = None):
-    id_pagamento = id or dict(request.query_params).get("data.id")
-    if id_pagamento and str(id_pagamento) != "123456":
-        try:
-            # 1. VERIFICAÇÃO ANTIDUPLICIDADE: Verifica se esse ID de Pix já foi processado antes
-            ja_processado = supabase.table("pagamentos_processados").select("*").eq("id_pagamento", str(id_pagamento)).execute()
-            if ja_processado.data:
-                print(f"Webhook ignorado: Pagamento {id_pagamento} já tinha sido computado.")
-                return Response(status_code=status.HTTP_200_OK)
+async def webhook_mercadopago(
+    request: Request, 
+    response: Response,
+    id: str | None = None,
+    topic: str | None = None
+):
+    id_pagamento = None
+    params = dict(request.query_params)
+    if params.get("type") == "payment" and params.get("data.id"):
+        id_pagamento = params.get("data.id")
+    elif topic == "payment" and id:
+        id_pagamento = id
 
+    if not id_pagamento:
+        try:
+            payload = await request.json()
+            if payload.get("type") == "payment" or payload.get("action") in ["payment.created", "payment.updated"]:
+                id_pagamento = payload.get("data", {}).get("id") or payload.get("id")
+        except Exception:
+            pass
+
+    if id_pagamento:
+        if str(id_pagamento) == "123456":
+            return Response(status_code=status.HTTP_200_OK)
+
+        try:
             pagamento_response = sdk.payment().get(id_pagamento)
             pagamento_info = pagamento_response.get("response", {})
             
             if pagamento_info.get("status") == "approved":
+                # --- BUSCA O E-MAIL REAL DA REFERÊNCIA EXTERNA ---
+                # Se não houver external_reference, ele cai de volta para o payer.email por segurança
                 email_real = pagamento_info.get("external_reference") or pagamento_info["payer"]["email"]
                 email_pagador = email_real.lower().strip()
                 
-                # 2. Registra o ID imediatamente para bloquear outras tentativas simultâneas
-                supabase.table("pagamentos_processados").insert({"id_pagamento": str(id_pagamento), "email": email_pagador}).execute()
-                
-                # 3. Processa o saldo de 50 créditos com segurança
                 existe = supabase.table("usuarios_pagos").select("*").eq("email", email_pagador).execute()
-                if existe.data:
-                    creditos_atuais = existe.data[0]["creditos"] + 50  
+                
+                if existe.data and len(existe.data) > 0:
+                    usuario_atual = existe.data[0]
+                    creditos_atuais = usuario_atual["creditos"] + 50
                     supabase.table("usuarios_pagos").update({"creditos": creditos_atuais}).eq("email", email_pagador).execute()
                 else:
                     supabase.table("usuarios_pagos").insert({"email": email_pagador, "creditos": 50}).execute()
                     
         except Exception as e:
-            print(f"Erro webhook: {e}")
-            
+            print(f"Erro interno no processamento do webhook: {e}")
+            return Response(status_code=status.HTTP_200_OK)
+                
     return Response(status_code=status.HTTP_200_OK)
 
 
