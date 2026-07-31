@@ -417,8 +417,7 @@ async def comprar_creditos(request: Request):
         "payment_method_id": "pix",
         "external_reference": email_logado,
         "payer": {"email": email_logado},
-        # 🌟 CERTIFIQUE-SE DE QUE ESTA LINHA APONTA PARA A ROTA CORRETA:
-        "notification_url": "https://qrpixpro.com.br"
+        
     }
     
     caminho_index = os.path.join(BASE_DIR, "templates", "index.html")
