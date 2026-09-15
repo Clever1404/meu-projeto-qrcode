@@ -15,6 +15,7 @@ from email.mime.text import MIMEText
 from itsdangerous import Signer, BadSignature
 from dotenv import load_dotenv
 import bcrypt
+import re
 
 # --- NOVAS IMPORTAÇÕES PARA O RENDER/POSTGRESQL ---
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
@@ -34,7 +35,7 @@ MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN") or "SEU_TOKEN_AQUI"
 sdk = mercadopago.SDK(MP_ACCESS_TOKEN)
 
 # Substituído Supabase por PostgreSQL do Render
-DATABASE_URL = os.environ.get("DATABASE_URL") or "postgresql+psycopg://user:password@hostname:port/dbname"
+DATABASE_URL = os.environ.get("DATABASE_URL") or "postgresql+psycopg://qrpix_prod_db_user:qfdxRojE0VPSf2KdaFavak5ZTInRfDKD@dpg-dadvtf2d0e5s73ej3jb0-a/qrpix_prod_db"
 
 # Configuração do SQLAlchemy
 engine = create_engine(DATABASE_URL)
@@ -183,31 +184,55 @@ async def enviar_contato(
 
 # --- AUXILIARES E LAYOUTS PIX HOMOLOGADOS ---
 
-def limpar_texto(texto):
-    return "".join(
+def limpar_texto(texto, permitir_asterisco=False):
+    if not texto:
+        return ""
+    # Remove acentos (NFD)
+    texto = "".join(
         c for c in unicodedata.normalize('NFD', texto)
         if unicodedata.category(c) != 'Mn'
-    ).upper().replace('$', '').replace('@', '@')
+    ).upper()
+    
+    # Mantém apenas letras, números e espaços (e asteriscos se permitido)
+    if permitir_asterisco:
+        texto = re.sub(r'[^A-Z0-9 *]', '', texto)
+    else:
+        texto = re.sub(r'[^A-Z0-9 ]', '', texto)
+        
+    return texto
 
 def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
-    nome = limpar_texto(nome)[:25]
-    cidade = limpar_texto(cidade)[:15]
-    txid = limpar_texto(txid)[:25]
+    # Limpa os textos ANTES de fazer o slice para garantir o tamanho correto
+    nome = limpar_texto(nome)[:25].strip()
+    cidade = limpar_texto(cidade)[:15].strip()
+    
+    # Tratamento estrito do TXID para o Banco do Brasil
+    if txid == "***":
+        txid_limpo = "***"
+    else:
+        txid_limpo = limpar_texto(txid)[:25].strip()
+        if not txid_limpo: # Se a limpeza esvaziou o TXID, usa o padrão
+            txid_limpo = "***"
+
     payload_format_indicator = "000201"
     gui = "0014BR.GOV.BCB.PIX"
     sub_bloco_chave = f"01{len(chave):02d}{chave}"
     merchant_account = gui + sub_bloco_chave
     merchant_account_len = f"26{len(merchant_account):02d}{merchant_account}"
+    
     merchant_category_code = "52040000"
     transaction_currency = "5303986"
+    
     transaction_amount = ""
     if valor > 0:
         valor_str = f"{valor:.2f}"
         transaction_amount = f"54{len(valor_str):02d}{valor_str}"
+        
     country_code = "5802BR"
     merchant_name = f"59{len(nome):02d}{nome}"
     merchant_city = f"60{len(cidade):02d}{cidade}"
-    additional_data = f"05{len(txid):02d}{txid}"
+    
+    additional_data = f"05{len(txid_limpo):02d}{txid_limpo}"
     additional_data_template = f"62{len(additional_data):02d}{additional_data}"
     
     payload = (
@@ -215,6 +240,7 @@ def gerar_payload_pix_estrito(chave, nome, cidade, valor, txid="***"):
         transaction_currency + transaction_amount + country_code + merchant_name +
         merchant_city + additional_data_template + "6304"
     )
+    
     crc16 = crcmod.mkCrcFun(poly=0x11021, initCrc=0xFFFF, rev=False, xorOut=0x0000)
     crc_code = hex(crc16(payload.encode('utf-8')))[2:].upper().zfill(4)
     return payload + crc_code
