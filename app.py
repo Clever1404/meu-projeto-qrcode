@@ -183,6 +183,33 @@ async def enviar_contato(
     )
 
 # --- AUXILIARES E LAYOUTS PIX HOMOLOGADOS ---
+def formatar_chave_pix(chave: str) -> str:
+    chave = chave.strip()
+    
+    # Se for uma chave de e-mail ou aleatória (UUID), mantém como está (letras minúsculas)
+    if "@" in chave or "-" in chave and len(chave) == 36:
+        return chave.lower()
+        
+    # Remove qualquer caractere que não seja número (para CPF, CNPJ e Telefone)
+    apenas_numeros = "".join(c for c in chave if c.isdigit())
+    
+    # Se tiver tamanho de CPF (11) ou CNPJ (14), retorna apenas os números
+    if len(apenas_numeros) in [11, 14] and not chave.startswith("+"):
+        # Se o número tiver 11 dígitos, pode ser um telefone sem o 55.
+        # Chaves de celular brasileiras têm 11 dígitos (DDD + 9 + 8 dígitos).
+        # Para diferenciar CPF de Telefone com 11 dígitos:
+        # Se você sabe que a entrada é explicitamente um telefone, force o +55.
+        pass
+
+    # Tratamento específico para TELEFONE:
+    # Se a chave original continha um "+" ou se sabemos que é um celular
+    if chave.startswith("+") or (len(apenas_numeros) in [10, 11] and NOT_EMAIL_OR_CPF):
+        # Se o usuário não digitou o código do país (55), nós adicionamos
+        if not apenas_numeros.startswith("55"):
+            return f"+55{apenas_numeros}"
+        return f"+{apenas_numeros}"
+        
+    return apenas_numeros
 
 def limpar_texto(texto, permitir_asterisco=False):
     if not texto:
