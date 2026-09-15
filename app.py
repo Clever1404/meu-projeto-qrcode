@@ -195,7 +195,7 @@ def limpar_texto(texto):
     return re.sub(r'[^A-Z0-9 ]', '', texto).strip()
 
 def tratar_chave_pix(chave):
-    chave = chave.strip()
+    chave = str(chave).strip()
     
     # Se for e-mail ou chave aleatória (contém @ ou hifens de UUID), mantém original
     if "@" in chave or ("-" in chave and len(chave) == 36):
@@ -204,15 +204,14 @@ def tratar_chave_pix(chave):
     # Limpa pontuação para numéricos (CPF, CNPJ, Telefone)
     apenas_numeros = re.sub(r'[^0-9]', '', chave)
     
-    # Se for telefone (geralmente de 10 a 13 dígitos dependendo se já tem 55 ou não)
-    # CPFs têm 11 dígitos, mas telefones celulares com DDD também têm 11 (ex: 11999999999)
-    # Se a chave original tinha um "+" ou se você sabe que a entrada é um celular:
-    if chave.startswith("+") or len(apenas_numeros) in:
+    # Verifica se é um número de telefone válido (com ou sem o DDI 55)
+    # Telefones no Brasil variam de 10 a 13 dígitos numéricos
+    if chave.startswith("+") or (len(apenas_numeros) in [10, 11, 12, 13]):
         if not apenas_numeros.startswith("55"):
             apenas_numeros = f"55{apenas_numeros}"
         return f"+{apenas_numeros}"
         
-    return apenas_numeros # Retorna CPF/CNPJ limpo
+    return apenas_numeros  # Retorna CPF/CNPJ limpo
 
 def gerar_payload_pix_estrito(chave_bruta, nome, cidade, valor, txid="***"):
     # 1. Trata e formata a chave antes de qualquer cálculo
