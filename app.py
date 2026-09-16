@@ -216,15 +216,13 @@ def tratar_chave_pix(chave):
         # Portanto, o terceiro dígito de um número de celular de 11 posições é SEMPRE 9.
         # Se o terceiro dígito NÃO for 9, com certeza é um CPF.
         if apenas_numeros[2] == '9':
-            # É um telefone celular (ex: 11 9 XXXX-XXXX)
             if not apenas_numeros.startswith("55"):
                 apenas_numeros = f"55{apenas_numeros}"
             return f"+{apenas_numeros}"
         else:
-            # É um CPF
             return apenas_numeros
             
-    # 4. Se tem 10 dígitos (Fixo: DDD + 8 dígitos) ou 12/13 dígitos (já com 55)
+    # 4. Se tem 10 dígitos (Fixo: DDD + 8 dígitos) ou 12/13 dígitos (já com o 55)
     if len(apenas_numeros) in:
         if not apenas_numeros.startswith("55"):
             apenas_numeros = f"55{apenas_numeros}"
@@ -233,6 +231,7 @@ def tratar_chave_pix(chave):
     # 5. Para CNPJ (14 dígitos) ou qualquer outro caso numérico limpo
     return apenas_numeros
 
+    
 def gerar_payload_pix_estrito(chave_bruta, nome, cidade, valor, txid="***"):
     # 1. Trata e formata a chave antes de qualquer cálculo
     chave = tratar_chave_pix(chave_bruta)
