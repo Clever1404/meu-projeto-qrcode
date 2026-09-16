@@ -210,11 +210,11 @@ def tratar_chave_pix(chave):
             apenas_numeros = f"55{apenas_numeros}"
         return f"+{apenas_numeros}"
     
-    # 3. Se tem 11 dígitos, pode ser CPF ou Telefone (ex: 11999999999)
+    # 3. Se tem 11 dígitos: Pode ser CPF ou Telefone Celular (ex: 11999999999)
     if len(apenas_numeros) == 11:
-        # Regra de ouro: Celulares no Brasil têm o formato DDD + 9 + 8 dígitos.
-        # Portanto, o terceiro dígito de um número de celular de 11 posições é SEMPRE 9.
-        # Se o terceiro dígito NÃO for 9, com certeza é um CPF.
+        # Celulares no Brasil têm o formato DDD + 9 + 8 dígitos.
+        # Portanto, o terceiro dígito (índice 2) é SEMPRE 9.
+        # Se for 9, tratamos como telefone. Caso contrário, é um CPF.
         if apenas_numeros[2] == '9':
             if not apenas_numeros.startswith("55"):
                 apenas_numeros = f"55{apenas_numeros}"
@@ -222,16 +222,18 @@ def tratar_chave_pix(chave):
         else:
             return apenas_numeros
             
-    # 4. Se tem 10 dígitos (Fixo: DDD + 8 dígitos) ou 12/13 dígitos (já com o 55)
-    if len(apenas_numeros) in:
+    # 4. Telefones fixos (10 dígitos) ou números que já possuem DDI (12 ou 13 dígitos)
+    tamanho = len(apenas_numeros)
+    if tamanho == 10 or tamanho == 12 or tamanho == 13:
         if not apenas_numeros.startswith("55"):
             apenas_numeros = f"55{apenas_numeros}"
         return f"+{apenas_numeros}"
         
-    # 5. Para CNPJ (14 dígitos) ou qualquer outro caso numérico limpo
+    # 5. Para CNPJ (14 dígitos) ou qualquer outro caso numérico residual
     return apenas_numeros
 
-    
+
+
 def gerar_payload_pix_estrito(chave_bruta, nome, cidade, valor, txid="***"):
     # 1. Trata e formata a chave antes de qualquer cálculo
     chave = tratar_chave_pix(chave_bruta)
