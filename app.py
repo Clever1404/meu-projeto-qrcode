@@ -197,21 +197,41 @@ def limpar_texto(texto):
 def tratar_chave_pix(chave):
     chave = str(chave).strip()
     
-    # Se for e-mail ou chave aleatória (contém @ ou hifens de UUID), mantém original
+    # 1. Se for e-mail ou chave aleatória (UUID), mantém original em minúsculas
     if "@" in chave or ("-" in chave and len(chave) == 36):
         return chave.lower()
         
-    # Limpa pontuação para numéricos (CPF, CNPJ, Telefone)
+    # Remove qualquer caractere que não seja número
     apenas_numeros = re.sub(r'[^0-9]', '', chave)
     
-    # Verifica se é um número de telefone válido (com ou sem o DDI 55)
-    # Telefones no Brasil variam de 10 a 13 dígitos numéricos
-    if chave.startswith("+") or (len(apenas_numeros) in [10, 11, 12, 13]):
+    # 2. Se a chave explicitamente começa com "+" é um telefone
+    if chave.startswith("+"):
+        if not apenas_numeros.startswith("55"):
+            apenas_numeros = f"55{apenas_numeros}"
+        return f"+{apenas_numeros}"
+    
+    # 3. Se tem 11 dígitos, pode ser CPF ou Telefone (ex: 11999999999)
+    if len(apenas_numeros) == 11:
+        # Regra de ouro: Celulares no Brasil têm o formato DDD + 9 + 8 dígitos.
+        # Portanto, o terceiro dígito de um número de celular de 11 posições é SEMPRE 9.
+        # Se o terceiro dígito NÃO for 9, com certeza é um CPF.
+        if apenas_numeros[2] == '9':
+            # É um telefone celular (ex: 11 9 XXXX-XXXX)
+            if not apenas_numeros.startswith("55"):
+                apenas_numeros = f"55{apenas_numeros}"
+            return f"+{apenas_numeros}"
+        else:
+            # É um CPF
+            return apenas_numeros
+            
+    # 4. Se tem 10 dígitos (Fixo: DDD + 8 dígitos) ou 12/13 dígitos (já com 55)
+    if len(apenas_numeros) in:
         if not apenas_numeros.startswith("55"):
             apenas_numeros = f"55{apenas_numeros}"
         return f"+{apenas_numeros}"
         
-    return apenas_numeros  # Retorna CPF/CNPJ limpo
+    # 5. Para CNPJ (14 dígitos) ou qualquer outro caso numérico limpo
+    return apenas_numeros
 
 def gerar_payload_pix_estrito(chave_bruta, nome, cidade, valor, txid="***"):
     # 1. Trata e formata a chave antes de qualquer cálculo
